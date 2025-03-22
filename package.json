@@ -7,7 +7,7 @@
   "scripts": {
     "dev:game": "vite build --watch",
     "dev:devvit": "devvit playtest YOUR_DEV_SUBREDDIT",
-    "dev": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:devvit\" \"npm run dev:game\" --restart-tries 30",
+    "dev": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:devvit\" \"npm run dev:game\" --restart-tries 5",
     "vite": "vite",
     "build": "vite build && devvit build",
     "upload": "devvit upload"
@@ -15,13 +15,17 @@
   "dependencies": {
     "@devvit/public-api": "^0.11.7",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "thread-defender": "file:"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.2.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
     "concurrently": "^8.2.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.0.15",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
   }
