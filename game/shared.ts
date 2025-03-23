@@ -1,22 +1,18 @@
-export type Page =
-  | "home"
-  | "pokemon";
+// Define all possible page names
+export type Page = 'home' | 'game' | 'shop' | 'options' | 'help';
 
-export type WebviewToBlockMessage = { type: "INIT" } | {
-  type: "GET_POKEMON_REQUEST";
-  payload: { name: string };
-};
+// Messages from webview to Devvit blocks
+export type WebviewToBlockMessage = 
+  | { type: "INIT" } 
+  | { type: "GAME_READY" }
+  | { type: "GAME_OVER"; payload: { score: number } };
 
-export type BlocksToWebviewMessage = {
-  type: "INIT_RESPONSE";
-  payload: {
-    postId: string;
-  };
-} | {
-  type: "GET_POKEMON_RESPONSE";
-  payload: { number: number; name: string; error?: string };
-};
+// Messages from Devvit blocks to webview
+export type BlocksToWebviewMessage = 
+  | { type: "INIT_RESPONSE"; payload: { postId: string; difficulty: string } }
+  | { type: "GAME_START"; payload: { wave: number; obeliskHealth: number } };
 
+// Helper type for Devvit message wrapping
 export type DevvitMessage = {
   type: "devvit-message";
   data: { message: BlocksToWebviewMessage };

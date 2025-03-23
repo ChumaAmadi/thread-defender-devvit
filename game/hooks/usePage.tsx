@@ -4,6 +4,7 @@ import { Page } from '../shared';
 const PageContext = createContext<Page | null>(null);
 const PageUpdaterContext = createContext<React.Dispatch<React.SetStateAction<Page>> | null>(null);
 
+// This component needs to be exported
 export const PageContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [page, setPage] = useState<Page>('home');
 

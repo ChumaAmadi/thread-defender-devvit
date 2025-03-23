@@ -6,16 +6,18 @@
   "type": "module",
   "scripts": {
     "dev:game": "vite build --watch",
-    "dev:devvit": "devvit playtest YOUR_DEV_SUBREDDIT",
-    "dev": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:devvit\" \"npm run dev:game\" --restart-tries 5",
+    "dev:devvit": "devvit playtest r/ThreadDefender",
+    "dev": "concurrently -p \"[{name}]\" -n \"DEVVIT,GAME\" -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:devvit\" \"npm run dev:game\" --restart-tries 30",
     "vite": "vite",
     "build": "vite build && devvit build",
     "upload": "devvit upload"
   },
   "dependencies": {
     "@devvit/public-api": "^0.11.7",
+    "clsx": "^2.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tailwind-merge": "^3.0.2",
     "thread-defender": "file:"
   },
   "devDependencies": {
