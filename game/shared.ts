@@ -30,5 +30,10 @@ export type BlocksToWebviewMessage =
 // Helper type for Devvit message wrapping
 export type DevvitMessage = {
   type: "devvit-message";
-  data: { message: BlocksToWebviewMessage };
+  data: {
+    message: {
+      type: string;
+      payload: any;
+    };
+  };
 };

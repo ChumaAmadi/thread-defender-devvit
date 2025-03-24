@@ -1,5 +1,6 @@
 import { Page } from './shared';
 import { HomePage } from './pages/HomePage';
+import { GamePage } from './pages/GamePage';
 import { usePage } from './hooks/usePage';
 import { useEffect, useState } from 'react';
 import { sendToDevvit } from './utils';
@@ -13,12 +14,12 @@ const ComingSoonPage = ({ page }: { page: string }) => (
   </div>
 );
 
-const getPage = (page: Page, { postId }: { postId: string }) => {
+const getPage = (page: Page, { postId, difficulty }: { postId: string, difficulty: number }) => {
   switch (page) {
     case 'home':
       return <HomePage postId={postId} />;
     case 'game':
-      return <ComingSoonPage page="Game" />;
+      return <GamePage postId={postId} difficulty={difficulty} />;
     case 'shop':
       return <ComingSoonPage page="Shop" />;
     case 'options':
@@ -32,6 +33,7 @@ const getPage = (page: Page, { postId }: { postId: string }) => {
 
 export const App = () => {
   const [postId, setPostId] = useState('');
+  const [difficulty, setDifficulty] = useState(1);
   const page = usePage();
   const initData = useDevvitListener('INIT_RESPONSE');
   
@@ -42,14 +44,30 @@ export const App = () => {
 
   useEffect(() => {
     if (initData) {
-      setPostId(initData.postId);
+      setPostId(initData.postId || '');
+      
+      // Calculate difficulty based on downvotes in the post (if available)
+      if (initData.downvotes !== undefined) {
+        const downvotesValue = initData.downvotes || 0;
+        
+        // Scale difficulty: 
+        // 1 = easy (few downvotes), 
+        // 5 = medium (moderate downvotes), 
+        // 10 = hard (many downvotes)
+        const calculatedDifficulty = Math.min(
+          1 + Math.floor(Math.log(downvotesValue + 1) / Math.log(10) * 3), 
+          10
+        );
+        
+        setDifficulty(calculatedDifficulty);
+      }
     }
   }, [initData]);
 
   // Add space theme background to entire app
   return (
     <div className="h-full bg-[#000022] text-white overflow-hidden">
-      {getPage(page, { postId })}
+      {getPage(page, { postId, difficulty })}
     </div>
   );
 };
