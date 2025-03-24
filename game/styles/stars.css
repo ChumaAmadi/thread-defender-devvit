@@ -1,3 +1,54 @@
+/* game/styles/stars.css */
+
+/* Star base styles */
+.star {
+  position: absolute;
+  border-radius: 9999px;
+  background-color: white;
+}
+
+.star-small {
+  width: 1px;
+  height: 1px;
+}
+
+.star-medium {
+  width: 2px;
+  height: 2px;
+}
+
+.star-large {
+  width: 3px;
+  height: 3px;
+  box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Star opacity variations */
+.star-opacity-low {
+  opacity: 0.3;
+}
+
+.star-opacity-medium {
+  opacity: 0.5;
+}
+
+.star-opacity-high {
+  opacity: 0.7;
+}
+
+/* Star animations */
+.star-animate-slow {
+  animation: twinkle 7s infinite;
+}
+
+.star-animate-medium {
+  animation: twinkle 8s infinite;
+}
+
+.star-animate-fast {
+  animation: twinkle 9s infinite;
+}
+
 /* Star variations */
 .star-0 {
   width: 1px;
@@ -37,4 +88,29 @@
   top: 95%;
   left: 95%;
   opacity: 0.8;
-} 
+}
+
+/* Add twinkle animation for stars */
+@keyframes twinkle {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+/* Add shooting star animation */
+@keyframes shooting-star {
+  0% {
+    transform: translateX(0) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(200px) translateY(200px) rotate(45deg);
+    opacity: 0;
+  }
+}

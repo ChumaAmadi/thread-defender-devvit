@@ -1,0 +1,56 @@
+/* Pulse animation for engine effects and buttons */
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+/* Explosion animation */
+@keyframes explode {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Obelisk shield pulsing */
+@keyframes shieldPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+}
+
+/* Damage flash */
+@keyframes damageFlash {
+  0% {
+    background-color: rgba(239, 68, 68, 0);
+  }
+  50% {
+    background-color: rgba(239, 68, 68, 0.5);
+  }
+  100% {
+    background-color: rgba(239, 68, 68, 0);
+  }
+}
