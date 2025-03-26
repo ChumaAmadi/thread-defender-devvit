@@ -3,48 +3,20 @@ import { StarBackground } from '../components/StarBackground';
 import { SpaceButton } from '../components/SpaceButton';
 import { useSetPage } from '../hooks/usePage';
 import { sendToDevvit } from '../utils';
-
-// Define game entity types
-interface GameObject {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  hp: number;
-  type: 'enemy' | 'bullet' | 'player-bullet' | 'explosion';
-  color?: string;
-}
-
-interface PlayerShip {
-  x: number;
-  y: number;
-  size: number;
-  angle: number;
-  speed: number;
-  fireRate: number;
-  lastFireTime: number;
-  specialAmmo: number;
-}
-
-interface GameState {
-  player: PlayerShip;
-  objects: GameObject[];
-  score: number;
-  level: number;
-  obeliskHealth: number;
-  gameOver: boolean;
-  isPaused: boolean;
-  mouseX: number;
-  mouseY: number;
-  isLeftMouseDown: boolean;
-  isRightMouseDown: boolean;
-}
+import { 
+  renderGame, 
+  processGameObjects, 
+  fireBullet,
+  GameState,
+  PlayerShip,
+  GameObject 
+} from '../game/gameRenderer';
+import { spawnEnemies, spawnRandomEnemy } from '../game/enemyManager';
 
 export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficulty?: number }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef<GameState | null>(null);
+  const animationFrameRef = useRef<number>(0);
   const setPage = useSetPage();
   const [gameState, setGameState] = useState<GameState>({
     player: {
@@ -74,6 +46,17 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   const requestRef = useRef<number>();
   const difficultyMultiplier = useRef<number>(Math.min(Math.max(difficulty, 1), 10));
   
+  // Enemy spawning timers
+  const lastEnemySpawnTime = useRef<number>(0);
+  const enemySpawnRate = useRef<number>(2000); // Time in ms between spawns
+  const waveStartTime = useRef<number>(Date.now());
+  const waveNumber = useRef<number>(1);
+  
+  // FPS and performance monitoring
+  const fpsRef = useRef<number[]>([]);
+  const lastFpsUpdate = useRef<number>(0);
+  const currentFps = useRef<number>(60);
+  
   // Update the ref when state changes
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -81,6 +64,8 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   
   // Setup game
   useEffect(() => {
+    console.log("Game initialized with difficulty:", difficultyMultiplier.current);
+    
     // Initialize the game
     if (!canvasRef.current) return;
     
@@ -160,32 +145,11 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     // Add event listeners
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseup', handleMouseUp); // Listen on window to catch mouseup outside canvas
     canvas.addEventListener('contextmenu', handleContextMenu);
     
-    // Game loop
-    const gameLoop = (time: number) => {
-      if (!lastTimeRef.current) {
-        lastTimeRef.current = time;
-      }
-      
-      const deltaTime = time - lastTimeRef.current;
-      lastTimeRef.current = time;
-      
-      // Update game state
-      if (!gameStateRef.current?.isPaused && !gameStateRef.current?.gameOver) {
-        updateGameState(deltaTime / 1000);
-      }
-      
-      // Render the game
-      renderGame(ctx);
-      
-      // Continue the game loop
-      requestRef.current = requestAnimationFrame(gameLoop);
-    };
-    
     // Start game loop
-    requestRef.current = requestAnimationFrame(gameLoop);
+    startGameLoop();
     
     // Initialize player position
     setGameState(prev => ({
@@ -197,15 +161,15 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       }
     }));
     
-    // Spawn initial enemies
-    spawnEnemies();
+    // Start the first wave
+    startWave(1);
     
     // Cleanup event listeners and animation frame on unmount
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mousedown', handleMouseDown);
-      canvas.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('contextmenu', handleContextMenu);
       
       if (requestRef.current) {
@@ -214,735 +178,326 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     };
   }, []);
   
+  // Start a new wave
+  const startWave = (wave: number) => {
+    if (!canvasRef.current) return;
+    
+    console.log(`Starting wave ${wave}`);
+    waveNumber.current = wave;
+    waveStartTime.current = Date.now();
+    
+    // Reset enemy spawn rate based on wave and difficulty
+    enemySpawnRate.current = Math.max(500, 2000 - (wave * 100) - (difficultyMultiplier.current * 50));
+    
+    // Spawn initial enemies
+    const enemyCount = 2 + Math.floor(wave / 2) + Math.floor(difficultyMultiplier.current / 2);
+    const canvas = canvasRef.current;
+    
+    spawnEnemies(
+      canvas.width, 
+      canvas.height, 
+      enemyCount, 
+      difficultyMultiplier.current, 
+      (enemy: GameObject) => {
+        setGameState(prev => ({
+          ...prev,
+          objects: [...prev.objects, enemy]
+        }));
+      }
+    );
+    
+    // Update game state with new wave number
+    setGameState(prev => ({
+      ...prev,
+      level: wave
+    }));
+    
+    // If it's not the first wave, show a wave notification
+    if (wave > 1) {
+      // This could be implemented with a visual notification
+      // For now, we'll just adjust difficulty slightly for each wave
+      difficultyMultiplier.current = Math.min(difficultyMultiplier.current + 0.2, 10);
+    }
+  };
+  
+  // Start the game loop
+  const startGameLoop = () => {
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+    }
+    
+    const gameLoop = (time: number) => {
+      if (!lastTimeRef.current) {
+        lastTimeRef.current = time;
+      }
+      
+      const deltaTime = time - lastTimeRef.current;
+      lastTimeRef.current = time;
+      
+      // Calculate FPS
+      if (time - lastFpsUpdate.current > 1000) {
+        // Update FPS every second
+        const fps = fpsRef.current.length > 0
+          ? fpsRef.current.reduce((sum, value) => sum + value, 0) / fpsRef.current.length
+          : 60;
+        
+        currentFps.current = Math.round(fps);
+        fpsRef.current = [];
+        lastFpsUpdate.current = time;
+      } else {
+        // Add current fps to the list
+        fpsRef.current.push(1000 / deltaTime);
+      }
+      
+      // Update game state
+      if (gameStateRef.current && !gameStateRef.current.isPaused && !gameStateRef.current.gameOver) {
+        updateGameState(deltaTime / 1000);
+      }
+      
+      // Render the game
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx && gameStateRef.current) {
+          renderGame(ctx, gameStateRef.current, canvasRef.current);
+        }
+      }
+      
+      // Continue the game loop
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
+    };
+    
+    // Start the loop
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
+  };
+  
   // Handle game over
   useEffect(() => {
     if (gameState.gameOver) {
       // Send game over event to Devvit
       sendToDevvit({
         type: 'GAME_OVER',
-        payload: { score: gameState.score }
+        payload: { score: Math.floor(gameState.score) }
       });
     }
   }, [gameState.gameOver]);
   
   // Handle player firing based on mouse state
   useEffect(() => {
-    if (!gameState.isPaused && !gameState.gameOver) {
-      // Check if left mouse button is pressed
-      if (gameState.isLeftMouseDown) {
-        const currentTime = Date.now();
-        if (currentTime - gameState.player.lastFireTime >= gameState.player.fireRate) {
-          // Fire regular bullet
-          fireBullet('regular');
-          
-          // Update last fire time
-          setGameState(prev => ({
-            ...prev,
-            player: {
-              ...prev.player,
-              lastFireTime: currentTime
-            }
-          }));
-        }
+    if (gameState.isPaused || gameState.gameOver) return;
+    
+    // Handle shooting in a separate interval
+    const shootingInterval = setInterval(() => {
+      if (!gameStateRef.current) return;
+      
+      const currentTime = Date.now();
+      const { isLeftMouseDown, isRightMouseDown, player } = gameStateRef.current;
+      
+      // Check if left mouse button is pressed and cooldown has passed
+      if (isLeftMouseDown && (currentTime - player.lastFireTime >= player.fireRate)) {
+        handleFireBullet('regular');
       }
       
-      // Check if right mouse button is pressed
-      if (gameState.isRightMouseDown && gameState.player.specialAmmo > 0) {
-        const currentTime = Date.now();
-        if (currentTime - gameState.player.lastFireTime >= gameState.player.fireRate * 3) {
-          // Fire special bullet
-          fireBullet('special');
-          
-          // Update last fire time and decrease special ammo
-          setGameState(prev => ({
-            ...prev,
-            player: {
-              ...prev.player,
-              lastFireTime: currentTime,
-              specialAmmo: prev.player.specialAmmo - 1
-            }
-          }));
-        }
+      // Check if right mouse button is pressed and cooldown has passed
+      if (isRightMouseDown && player.specialAmmo > 0 && (currentTime - player.lastFireTime >= player.fireRate * 3)) {
+        handleFireBullet('special');
       }
-    }
-  }, [gameState.isLeftMouseDown, gameState.isRightMouseDown, gameState.isPaused, gameState.gameOver]);
+    }, 16); // Check roughly every frame
+    
+    return () => clearInterval(shootingInterval);
+  }, [gameState.isPaused, gameState.gameOver]);
   
-  // Fire bullet from player
-  const fireBullet = (type: 'regular' | 'special') => {
-    const { player, mouseX, mouseY } = gameState;
+  // Handle firing a bullet
+  const handleFireBullet = (type: 'regular' | 'special') => {
+    if (!gameStateRef.current) return;
     
-    // Calculate direction to mouse cursor
-    const dx = mouseX - player.x;
-    const dy = mouseY - player.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const { newBullet, updatedPlayer } = fireBullet(
+      gameStateRef.current, 
+      type
+    );
     
-    // Normalize direction and set velocity
-    const bulletSpeed = type === 'regular' ? 8 : 5;
-    const vx = (dx / distance) * bulletSpeed;
-    const vy = (dy / distance) * bulletSpeed;
+    if (!newBullet) return;
     
-    // Create bullet
-    const bullet: GameObject = {
-      id: Date.now() + Math.random(),
-      x: player.x,
-      y: player.y,
-      vx: vx,
-      vy: vy,
-      size: type === 'regular' ? 4 : 10,
-      hp: type === 'regular' ? 1 : 5,
-      type: 'player-bullet',
-      color: type === 'regular' ? '#60A5FA' : '#8B5CF6'
-    };
-    
-    // Add bullet to game objects
+    // Add bullet to game objects using a functional state update
     setGameState(prev => ({
       ...prev,
-      objects: [...prev.objects, bullet]
+      player: updatedPlayer,
+      objects: [...prev.objects, newBullet]
     }));
   };
   
   // Update game state based on elapsed time
   const updateGameState = (deltaTime: number) => {
-    if (!gameStateRef.current) return;
-    const currentState = gameStateRef.current;
+    if (!gameStateRef.current || !canvasRef.current) return;
+    const currentState = { ...gameStateRef.current };
+    const canvas = canvasRef.current;
     
+    // Check for game over
     if (currentState.obeliskHealth <= 0) {
       setGameState(prev => ({ ...prev, gameOver: true }));
       return;
     }
     
+    // Check if it's time to spawn a new enemy
+    const now = Date.now();
+    if (now - lastEnemySpawnTime.current > enemySpawnRate.current) {
+      // Spawn a new enemy and add to game state
+      const newEnemy = spawnRandomEnemy(
+        canvas.width, 
+        canvas.height, 
+        difficultyMultiplier.current,
+        canvas.width / 2,
+        canvas.height / 2
+      );
+      
+      setGameState(prev => ({
+        ...prev,
+        objects: [...prev.objects, newEnemy]
+      }));
+      
+      lastEnemySpawnTime.current = now;
+      
+      // Decrease spawn rate over time (more enemies as the game progresses)
+      enemySpawnRate.current = Math.max(
+        500, // Minimum spawn rate
+        enemySpawnRate.current - 10 // Gradually decrease spawn time
+      );
+    }
+    
+    // Check if it's time for a new wave
+    const waveTime = 30000 + (waveNumber.current * 5000); // Each wave gets longer
+    if (now - waveStartTime.current > waveTime) {
+      // Start next wave
+      startWave(waveNumber.current + 1);
+    }
+    
     // Update player position
-    const playerSpeed = currentState.player.speed;
+    updatePlayerPosition(currentState, canvas, deltaTime);
     
-    // Calculate angle to mouse
-    const dx = currentState.mouseX - currentState.player.x;
-    const dy = currentState.mouseY - currentState.player.y;
-    const angle = Math.atan2(dy, dx);
-    
-    // Move player towards mouse cursor, but with some maximum distance from obelisk
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      
-      // Calculate distance from player to center
-      const playerToCenterX = currentState.player.x - centerX;
-      const playerToCenterY = currentState.player.y - centerY;
-      const distanceToCenter = Math.sqrt(playerToCenterX * playerToCenterX + playerToCenterY * playerToCenterY);
-      
-      // Maximum distance player can be from center
-      const maxDistance = Math.min(canvas.width, canvas.height) * 0.4;
-      
-      // Constrain player within screen bounds
-      const padding = 20;
-      const minX = padding;
-      const maxX = canvas.width - padding;
-      const minY = padding;
-      const maxY = canvas.height - padding;
-      
-      // Calculate target position
-      let targetX = currentState.player.x;
-      let targetY = currentState.player.y;
-      
-      // Only move if mouse is more than 5px away from player
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-        targetX = currentState.player.x + Math.cos(angle) * playerSpeed * deltaTime * 60;
-        targetY = currentState.player.y + Math.sin(angle) * playerSpeed * deltaTime * 60;
-      }
-      
-      // Constrain to screen bounds
-      targetX = Math.max(minX, Math.min(maxX, targetX));
-      targetY = Math.max(minY, Math.min(maxY, targetY));
-      
-      // Constrain to maximum distance from center
-      const newPlayerToCenterX = targetX - centerX;
-      const newPlayerToCenterY = targetY - centerY;
-      const newDistanceToCenter = Math.sqrt(newPlayerToCenterX * newPlayerToCenterX + newPlayerToCenterY * newPlayerToCenterY);
-      
-      if (newDistanceToCenter > maxDistance) {
-        const ratio = maxDistance / newDistanceToCenter;
-        targetX = centerX + newPlayerToCenterX * ratio;
-        targetY = centerY + newPlayerToCenterY * ratio;
-      }
-      
-      // Update player
-      currentState.player.x = targetX;
-      currentState.player.y = targetY;
-      currentState.player.angle = angle;
-    }
-    
-    // Update object positions
-    const updatedObjects = currentState.objects.map(obj => {
-      const newX = obj.x + obj.vx * deltaTime * 60;
-      const newY = obj.y + obj.vy * deltaTime * 60;
-      
-      // If object is an explosion, reduce its size over time
-      if (obj.type === 'explosion') {
-        const newSize = obj.size - deltaTime * 40;
-        if (newSize <= 0) {
-          return null; // Remove explosion
-        }
-        return { ...obj, size: newSize };
-      }
-      
-      return { ...obj, x: newX, y: newY };
-    }).filter(Boolean) as GameObject[];
-    
-    // Check for collisions
-    let obeliskHealth = currentState.obeliskHealth;
-    let score = currentState.score;
-    
-    // Process all objects for collision
-    const collidedObjects: number[] = []; // IDs of objects that collided
-    
-    for (let i = 0; i < updatedObjects.length; i++) {
-      const obj = updatedObjects[i];
-      if (collidedObjects.includes(obj.id)) continue; // Skip already collided objects
-      
-      // Get canvas dimensions
-      const canvas = canvasRef.current;
-      if (!canvas) continue;
-      
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const obeliskRadius = 30; // Size of the obelisk
-      
-      // Process based on object type
-      if (obj.type === 'enemy') {
-        // Calculate distance to obelisk center
-        const dx = obj.x - centerX;
-        const dy = obj.y - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // If enemy collides with obelisk
-        if (distance < obeliskRadius + obj.size) {
-          obeliskHealth -= 10; // Reduce obelisk health
-          
-          // Create explosion effect
-          const explosion: GameObject = {
-            id: Date.now() + Math.random(),
-            x: obj.x,
-            y: obj.y,
-            vx: 0,
-            vy: 0,
-            size: obj.size * 2,
-            hp: 1,
-            type: 'explosion'
-          };
-          
-          updatedObjects.push(explosion);
-          collidedObjects.push(obj.id); // Mark for removal
-          continue;
-        }
-        
-        // Check collision with player
-        const playerDx = obj.x - currentState.player.x;
-        const playerDy = obj.y - currentState.player.y;
-        const playerDistance = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
-        
-        if (playerDistance < obj.size + currentState.player.size) {
-          obeliskHealth -= 5; // Player hit by enemy reduces obelisk health (game mechanic)
-          
-          // Create explosion effect
-          const explosion: GameObject = {
-            id: Date.now() + Math.random(),
-            x: obj.x,
-            y: obj.y,
-            vx: 0,
-            vy: 0,
-            size: obj.size * 1.5,
-            hp: 1,
-            type: 'explosion'
-          };
-          
-          updatedObjects.push(explosion);
-          collidedObjects.push(obj.id); // Mark for removal
-          continue;
-        }
-        
-        // Check collision with player bullets
-        for (let j = 0; j < updatedObjects.length; j++) {
-          const bullet = updatedObjects[j];
-          if (bullet.type !== 'player-bullet' || collidedObjects.includes(bullet.id)) continue;
-          
-          const bulletDx = obj.x - bullet.x;
-          const bulletDy = obj.y - bullet.y;
-          const bulletDistance = Math.sqrt(bulletDx * bulletDx + bulletDy * bulletDy);
-          
-          if (bulletDistance < obj.size + bullet.size) {
-            // Reduce enemy HP by bullet's HP
-            obj.hp -= bullet.hp;
-            
-            // If enemy is destroyed
-            if (obj.hp <= 0) {
-              score += 10 * difficultyMultiplier.current; // Add score
-              
-              // Create explosion effect
-              const explosion: GameObject = {
-                id: Date.now() + Math.random(),
-                x: obj.x,
-                y: obj.y,
-                vx: 0,
-                vy: 0,
-                size: obj.size * 1.5,
-                hp: 1,
-                type: 'explosion'
-              };
-              
-              updatedObjects.push(explosion);
-              collidedObjects.push(obj.id); // Mark enemy for removal
-              
-              // Special bullet explosions cause area damage
-              if (bullet.size > 5) {
-                // Damage nearby enemies
-                for (let k = 0; k < updatedObjects.length; k++) {
-                  const nearbyObj = updatedObjects[k];
-                  if (nearbyObj.type !== 'enemy' || collidedObjects.includes(nearbyObj.id)) continue;
-                  
-                  const nearbyDx = nearbyObj.x - obj.x;
-                  const nearbyDy = nearbyObj.y - obj.y;
-                  const nearbyDistance = Math.sqrt(nearbyDx * nearbyDx + nearbyDy * nearbyDy);
-                  
-                  if (nearbyDistance < obj.size * 3) {
-                    // Damage based on distance
-                    const damage = Math.ceil(3 * (1 - nearbyDistance / (obj.size * 3)));
-                    nearbyObj.hp -= damage;
-                    
-                    // If nearby enemy is also destroyed
-                    if (nearbyObj.hp <= 0) {
-                      score += 5 * difficultyMultiplier.current; // Add score
-                      
-                      // Create smaller explosion
-                      const smallExplosion: GameObject = {
-                        id: Date.now() + Math.random(),
-                        x: nearbyObj.x,
-                        y: nearbyObj.y,
-                        vx: 0,
-                        vy: 0,
-                        size: nearbyObj.size,
-                        hp: 1,
-                        type: 'explosion'
-                      };
-                      
-                      updatedObjects.push(smallExplosion);
-                      collidedObjects.push(nearbyObj.id); // Mark for removal
-                    }
-                  }
-                }
-              }
-            }
-            
-            collidedObjects.push(bullet.id); // Mark bullet for removal
-            break;
-          }
-        }
-      }
-      
-      // Remove objects that go off-screen
-      const buffer = 50;
-      if (obj.x < -buffer || obj.x > canvas.width + buffer || 
-          obj.y < -buffer || obj.y > canvas.height + buffer) {
-        collidedObjects.push(obj.id);
-      }
-    }
-    
-    // Filter out collided objects
-    const remainingObjects = updatedObjects.filter(obj => !collidedObjects.includes(obj.id));
-    
-    // Randomly spawn new enemies based on difficulty
-    if (Math.random() < 0.02 * difficultyMultiplier.current) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const newEnemy = createRandomEnemy(canvas.width, canvas.height);
-        remainingObjects.push(newEnemy);
-      }
-    }
-    
-    // Chance to replenish special ammo (slowly)
-    if (Math.random() < 0.001 * difficultyMultiplier.current && currentState.player.specialAmmo < 3) {
-      currentState.player.specialAmmo += 1;
-    }
+    // Process objects and collisions
+    const { updatedObjects, obeliskDamage, scoreIncrease } = processGameObjects(
+      currentState, 
+      canvas,
+      difficultyMultiplier.current
+    );
     
     // Update game state
     setGameState(prev => ({
       ...prev,
-      player: currentState.player, // Update player from current state
-      objects: remainingObjects,
-      obeliskHealth,
-      score: score + (deltaTime * 5), // Passive score increase for survival
+      player: currentState.player,
+      objects: updatedObjects,
+      obeliskHealth: Math.max(0, prev.obeliskHealth - obeliskDamage),
+      score: prev.score + scoreIncrease + (deltaTime * 5), // Passive score increase for survival
     }));
-  };
-  
-  // Render the game to canvas
-  const renderGame = (ctx: CanvasRenderingContext2D) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !gameStateRef.current) return;
     
-    const currentState = gameStateRef.current;
+    // If all enemies are cleared from a wave, give a small health bonus
+    const enemies = updatedObjects.filter(obj => obj.type === 'enemy');
+    if (enemies.length === 0 && now - lastEnemySpawnTime.current > 3000) {
+      // Spawn a new wave of enemies
+      const waveEnemies = Math.min(3 + Math.floor(waveNumber.current / 2), 10);
+      spawnEnemies(
+        canvas.width, 
+        canvas.height, 
+        waveEnemies, 
+        difficultyMultiplier.current, 
+        (enemy: GameObject) => {
+          setGameState(prev => ({
+            ...prev,
+            objects: [...prev.objects, enemy]
+          }));
+        }
+      );
+      lastEnemySpawnTime.current = now;
+      
+      // Give a health bonus (capped at 100)
+      setGameState(prev => ({
+        ...prev,
+        obeliskHealth: Math.min(100, prev.obeliskHealth + 5)
+      }));
+    }
     
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw obelisk
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    drawObelisk(ctx, centerX, centerY, currentState.obeliskHealth);
-    
-    // Draw game objects
-    currentState.objects.forEach(obj => {
-      if (obj.type === 'enemy') {
-        drawEnemy(ctx, obj);
-      } else if (obj.type === 'explosion') {
-        drawExplosion(ctx, obj);
-      } else if (obj.type === 'player-bullet') {
-        drawBullet(ctx, obj);
-      }
-    });
-    
-    // Draw player
-    drawPlayer(ctx, currentState.player);
-    
-    // Draw HUD
-    drawHUD(ctx, currentState);
-  };
-  
-  // Draw the obelisk/tower in the center
-  const drawObelisk = (ctx: CanvasRenderingContext2D, x: number, y: number, health: number) => {
-    // Outer circle
-    ctx.beginPath();
-    ctx.arc(x, y, 30, 0, Math.PI * 2);
-    ctx.fillStyle = '#2563EB'; // Blue-600
-    ctx.fill();
-    
-    // Inner circle
-    ctx.beginPath();
-    ctx.arc(x, y, 20, 0, Math.PI * 2);
-    ctx.fillStyle = '#1E40AF'; // Blue-800
-    ctx.fill();
-    
-    // X shape in the center
-    ctx.beginPath();
-    ctx.moveTo(x - 15, y - 15);
-    ctx.lineTo(x + 15, y + 15);
-    ctx.moveTo(x + 15, y - 15);
-    ctx.lineTo(x - 15, y + 15);
-    ctx.strokeStyle = '#D1D5DB'; // Gray-300
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    
-    // Small orange dot
-    ctx.beginPath();
-    ctx.arc(x + 15, y - 15, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#F97316'; // Orange-500
-    ctx.fill();
-    
-    // Shields/wings
-    const shieldPositions = [
-      { x: 0, y: -30 }, // top
-      { x: 0, y: 30 }, // bottom
-      { x: -30, y: 0 }, // left
-      { x: 30, y: 0 }, // right
-    ];
-    
-    shieldPositions.forEach(pos => {
-      ctx.beginPath();
-      ctx.roundRect(x + pos.x - 15, y + pos.y - 4, 30, 8, 4);
-      ctx.fillStyle = '#D1D5DB'; // Gray-300
-      ctx.fill();
-    });
-    
-    // Health bar
-    const healthBarWidth = 60;
-    const healthBarHeight = 6;
-    const healthPercentage = Math.max(0, health / 100);
-    
-    ctx.beginPath();
-    ctx.roundRect(x - healthBarWidth / 2, y - 45, healthBarWidth, healthBarHeight, 3);
-    ctx.fillStyle = '#4B5563'; // Gray-600
-    ctx.fill();
-    
-    ctx.beginPath();
-    ctx.roundRect(x - healthBarWidth / 2, y - 45, healthBarWidth * healthPercentage, healthBarHeight, 3);
-    ctx.fillStyle = healthPercentage > 0.6 ? '#10B981' : healthPercentage > 0.3 ? '#F59E0B' : '#EF4444';
-    ctx.fill();
-    
-    // Draw shield effect if health is low
-    if (healthPercentage < 0.3) {
-      ctx.beginPath();
-      ctx.arc(x, y, 35, 0, Math.PI * 2);
-      ctx.strokeStyle = '#EF4444';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+    // Occasionally replenish special ammo
+    if (Math.random() < 0.001 && currentState.player.specialAmmo < 3) {
+      setGameState(prev => ({
+        ...prev,
+        player: {
+          ...prev.player,
+          specialAmmo: prev.player.specialAmmo + 1
+        }
+      }));
     }
   };
   
-  // Draw player ship
-  const drawPlayer = (ctx: CanvasRenderingContext2D, player: PlayerShip) => {
-    ctx.save();
+  // Update player position based on mouse movement
+  const updatePlayerPosition = (state: GameState, canvas: HTMLCanvasElement, deltaTime: number) => {
+    const playerSpeed = state.player.speed;
     
-    // Translate to player position
-    ctx.translate(player.x, player.y);
-    
-    // Rotate to face mouse cursor
-    ctx.rotate(player.angle);
-    
-    // Draw player ship body
-    ctx.beginPath();
-    ctx.moveTo(player.size, 0); // Nose of the ship
-    ctx.lineTo(-player.size, -player.size / 2); // Bottom-left
-    ctx.lineTo(-player.size / 2, 0); // Middle back
-    ctx.lineTo(-player.size, player.size / 2); // Top-left
-    ctx.closePath();
-    ctx.fillStyle = '#60A5FA'; // Blue-400
-    ctx.fill();
-    
-    // Draw player ship details
-    ctx.beginPath();
-    ctx.moveTo(player.size / 2, 0); // Front middle
-    ctx.lineTo(-player.size / 2, -player.size / 4); // Bottom
-    ctx.lineTo(-player.size / 4, 0); // Middle back
-    ctx.lineTo(-player.size / 2, player.size / 4); // Top
-    ctx.closePath();
-    ctx.fillStyle = '#93C5FD'; // Blue-300
-    ctx.fill();
-    
-    // Draw engine glow
-    ctx.beginPath();
-    ctx.moveTo(-player.size, 0);
-    ctx.lineTo(-player.size - player.size / 2, -player.size / 4);
-    ctx.lineTo(-player.size - player.size / 2, player.size / 4);
-    ctx.closePath();
-    ctx.fillStyle = '#F97316'; // Orange-500
-    ctx.fill();
-    
-    ctx.restore();
-  };
-  
-  // Draw enemies
-  const drawEnemy = (ctx: CanvasRenderingContext2D, enemy: GameObject) => {
-    // Enemy body
-    ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
-    ctx.fillStyle = '#EF4444'; // Red-500
-    ctx.fill();
-    
-    // Enemy details
-    ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y, enemy.size * 0.6, 0, Math.PI * 2);
-    ctx.fillStyle = '#B91C1C'; // Red-700
-    ctx.fill();
-    
-    // Calculate direction towards obelisk for enemy "face"
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const dx = centerX - enemy.x;
-    const dy = centerY - enemy.y;
+    // Calculate angle to mouse
+    const dx = state.mouseX - state.player.x;
+    const dy = state.mouseY - state.player.y;
     const angle = Math.atan2(dy, dx);
     
-    // Draw "face" pointing to obelisk
-    const eyeOffsetX = Math.cos(angle) * enemy.size * 0.3;
-    const eyeOffsetY = Math.sin(angle) * enemy.size * 0.3;
+    // Move player towards mouse cursor, but with some maximum distance from obelisk
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
     
-    ctx.beginPath();
-    ctx.arc(enemy.x + eyeOffsetX, enemy.y + eyeOffsetY, enemy.size * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = '#FBBF24'; // Amber-400
-    ctx.fill();
+    // Calculate distance from player to center
+    const playerToCenterX = state.player.x - centerX;
+    const playerToCenterY = state.player.y - centerY;
+    const distanceToCenter = Math.sqrt(playerToCenterX * playerToCenterX + playerToCenterY * playerToCenterY);
     
-    // Health bar for bigger enemies
-    if (enemy.size > 10 && enemy.hp > 1) {
-      const healthBarWidth = enemy.size * 2;
-      const healthBarHeight = 2;
-      const healthPercentage = Math.max(0, enemy.hp / Math.ceil(enemy.size / 3));
-      
-      ctx.beginPath();
-      ctx.roundRect(enemy.x - healthBarWidth / 2, enemy.y - enemy.size - 5, healthBarWidth, healthBarHeight, 1);
-      ctx.fillStyle = '#4B5563'; // Gray-600
-      ctx.fill();
-      
-      ctx.beginPath();
-      ctx.roundRect(enemy.x - healthBarWidth / 2, enemy.y - enemy.size - 5, healthBarWidth * healthPercentage, healthBarHeight, 1);
-      ctx.fillStyle = '#EF4444'; // Red-500
-      ctx.fill();
-    }
-  };
-  
-  // Draw bullets
-  const drawBullet = (ctx: CanvasRenderingContext2D, bullet: GameObject) => {
-    ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
-    ctx.fillStyle = bullet.color || '#60A5FA'; // Blue-400 by default
-    ctx.fill();
+    // Maximum distance player can be from center
+    const maxDistance = Math.min(canvas.width, canvas.height) * 0.4;
     
-    // Add glow effect for special bullets
-    if (bullet.size > 5) {
-      ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, bullet.size * 1.5, 0, Math.PI * 2);
-      const gradient = ctx.createRadialGradient(
-        bullet.x, bullet.y, bullet.size,
-        bullet.x, bullet.y, bullet.size * 1.5
-      );
-      gradient.addColorStop(0, 'rgba(139, 92, 246, 0.5)'); // Purple-500 at 50% opacity
-      gradient.addColorStop(1, 'rgba(139, 92, 246, 0)'); // Transparent
-      ctx.fillStyle = gradient;
-      ctx.fill();
-    }
-  };
-  
-  // Draw explosion effect
-  const drawExplosion = (ctx: CanvasRenderingContext2D, explosion: GameObject) => {
-    ctx.beginPath();
-    ctx.arc(explosion.x, explosion.y, explosion.size, 0, Math.PI * 2);
+    // Constrain player within screen bounds
+    const padding = 20;
+    const minX = padding;
+    const maxX = canvas.width - padding;
+    const minY = padding;
+    const maxY = canvas.height - padding;
     
-    // Create gradient for explosion
-    const gradient = ctx.createRadialGradient(
-      explosion.x, explosion.y, 0,
-      explosion.x, explosion.y, explosion.size
-    );
-    gradient.addColorStop(0, '#F59E0B'); // Amber-500
-    gradient.addColorStop(0.7, '#F97316'); // Orange-500
-    gradient.addColorStop(1, 'rgba(239, 68, 68, 0)'); // Transparent Red-500
+    // Calculate target position
+    let targetX = state.player.x;
+    let targetY = state.player.y;
     
-    ctx.fillStyle = gradient;
-    ctx.fill();
-  };
-  
-  // Draw HUD (score, level, etc.)
-  const drawHUD = (ctx: CanvasRenderingContext2D, state: GameState) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    // Draw score and level
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillStyle = 'white';
-    ctx.textAlign = 'left';
-    
-    // Score
-    ctx.fillText(`Score: ${Math.floor(state.score)}`, 20, 30);
-    
-    // Level indicator
-    ctx.fillText(`Level: ${state.level}`, 20, 60);
-    
-    // Special ammo indicator
-    ctx.fillText(`Special Ammo: ${state.player.specialAmmo}`, 20, 90);
-    
-    // Instructions (only show for first few seconds)
-    if (state.score < 100) {
-      ctx.font = '14px sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.textAlign = 'center';
-      ctx.fillText('Move: Mouse', canvas.width / 2, canvas.height - 60);
-      ctx.fillText('Shoot: Left Click', canvas.width / 2, canvas.height - 40);
-      ctx.fillText('Special Attack: Right Click', canvas.width / 2, canvas.height - 20);
+    // Only move if mouse is more than 5px away from player
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      targetX = state.player.x + Math.cos(angle) * playerSpeed * deltaTime * 60;
+      targetY = state.player.y + Math.sin(angle) * playerSpeed * deltaTime * 60;
     }
     
-    // Show game over text if game over
-    if (state.gameOver) {
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillStyle = 'white';
-      ctx.textAlign = 'center';
-      ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 50);
-      
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillText(`Final Score: ${Math.floor(state.score)}`, canvas.width / 2, canvas.height / 2);
-    }
-  };
-  
-  // Spawn initial enemies
-  const spawnEnemies = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    // Constrain to screen bounds
+    targetX = Math.max(minX, Math.min(maxX, targetX));
+    targetY = Math.max(minY, Math.min(maxY, targetY));
     
-    const initialEnemies: GameObject[] = [];
-    const enemyCount = Math.floor(3 + (difficultyMultiplier.current * 2));
+    // Constrain to maximum distance from center
+    const newPlayerToCenterX = targetX - centerX;
+    const newPlayerToCenterY = targetY - centerY;
+    const newDistanceToCenter = Math.sqrt(newPlayerToCenterX * newPlayerToCenterX + newPlayerToCenterY * newPlayerToCenterY);
     
-    for (let i = 0; i < enemyCount; i++) {
-      initialEnemies.push(createRandomEnemy(canvas.width, canvas.height));
+    if (newDistanceToCenter > maxDistance) {
+      const ratio = maxDistance / newDistanceToCenter;
+      targetX = centerX + newPlayerToCenterX * ratio;
+      targetY = centerY + newPlayerToCenterY * ratio;
     }
     
-    setGameState(prev => ({
-      ...prev,
-      objects: [...prev.objects, ...initialEnemies]
-    }));
-  };
-  
-  // Create a random enemy outside the screen
-  const createRandomEnemy = (canvasWidth: number, canvasHeight: number): GameObject => {
-    // Decide which side the enemy will spawn from
-    const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
-    
-    let x, y;
-    const buffer = 50; // Spawn slightly outside the canvas
-    
-    switch (side) {
-      case 0: // top
-        x = Math.random() * canvasWidth;
-        y = -buffer;
-        break;
-      case 1: // right
-        x = canvasWidth + buffer;
-        y = Math.random() * canvasHeight;
-        break;
-      case 2: // bottom
-        x = Math.random() * canvasWidth;
-        y = canvasHeight + buffer;
-        break;
-      case 3: // left
-        x = -buffer;
-        y = Math.random() * canvasHeight;
-        break;
-      default:
-        x = -buffer;
-        y = Math.random() * canvasHeight;
-    }
-    
-    // Calculate direction towards center
-    const centerX = canvasWidth / 2;
-    const centerY = canvasHeight / 2;
-    const dx = centerX - x;
-    const dy = centerY - y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    // Normalize direction and set velocity
-    const baseSpeed = 1 + (difficultyMultiplier.current * 0.5);
-    const speedVariation = Math.random() * 0.5 + 0.75; // 0.75 to 1.25
-    const speed = baseSpeed * speedVariation;
-    
-    const vx = (dx / distance) * speed;
-    const vy = (dy / distance) * speed;
-    
-    // Set size based on difficulty
-    const baseSize = 8 + Math.random() * 8; // 8-16
-    const sizeMultiplier = 1 + (difficultyMultiplier.current * 0.1); // 1.1 - 2.0
-    const size = baseSize * sizeMultiplier;
-    
-    // HP based on size
-    const hp = Math.ceil(size / 4);
-    
-    return {
-      id: Date.now() + Math.random(),
-      x,
-      y,
-      vx,
-      vy,
-      size,
-      hp,
-      type: 'enemy'
-    };
+    // Update player
+    state.player.x = targetX;
+    state.player.y = targetY;
+    state.player.angle = angle;
   };
   
   // Handle restart game button click
   const handleRestart = () => {
+    if (!canvasRef.current) return;
+    
     setGameState({
       player: {
-        x: canvasRef.current ? canvasRef.current.width / 2 : 0,
-        y: canvasRef.current ? canvasRef.current.height / 2 + 100 : 0,
+        x: canvasRef.current.width / 2,
+        y: canvasRef.current.height / 2 + 100,
         size: 15,
         angle: 0,
         speed: 5,
-        fireRate: 200, // milliseconds between shots
+        fireRate: 200,
         lastFireTime: 0,
         specialAmmo: 3
       },
@@ -958,8 +513,17 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       isRightMouseDown: false
     });
     
-    // Spawn new enemies
-    spawnEnemies();
+    // Reset wave number and timing
+    waveNumber.current = 1;
+    waveStartTime.current = Date.now();
+    lastEnemySpawnTime.current = 0;
+    enemySpawnRate.current = 2000;
+    
+    // Start the first wave again
+    startWave(1);
+    
+    // Restart game loop
+    startGameLoop();
   };
   
   // Handle return to menu button click
@@ -1000,6 +564,16 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
               </SpaceButton>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Debug info overlay (hidden in production) */}
+      {false && (
+        <div className="absolute top-2 right-2 bg-black bg-opacity-50 p-2 rounded text-xs text-white">
+          <div>FPS: {currentFps.current}</div>
+          <div>Objects: {gameState.objects.length}</div>
+          <div>Difficulty: {difficultyMultiplier.current.toFixed(1)}</div>
+          <div>Wave: {waveNumber.current}</div>
         </div>
       )}
     </div>

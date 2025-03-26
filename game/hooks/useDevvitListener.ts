@@ -1,57 +1,48 @@
 import { useEffect, useState } from 'react';
-import { DevvitMessage, BlocksToWebviewMessage } from '../shared';
+import { BlocksToWebviewMessage } from '../shared';
+
+type MessagePayload<T> = Extract<BlocksToWebviewMessage, { type: T }>['payload'];
 
 /**
- * Triggers re-renders when a message is received from the Devvit webview.
- *
- *
- * @usage
- *
- * ```ts
- * // somewhere in blocks land
- * context.ui.webView.postMessage('webview', {
- *   type: 'WORD_SUBMITTED_RESPONSE',
- *   payload: { error: 'foo', similarity: 0.5 },
- * });
- * ```
- *
- * ```tsx
- * // somewhere in React land
- * const App = () => {
- *  const [loading, setLoading] = useState(false);
- *  const data = useDevvitListener('WORD_SUBMITTED_RESPONSE');
- *
- *  useEffect(() => {
- *    if (data) {
- *      // great place to set loading to false!
- *      console.log(data.error, data.similarity);
- *    }
- *   }, [data]);
- *
- *   return <div>Similarity: {data?.similarity}</div>
- * }
- * ```
+ * Hook to listen for messages from Devvit
+ * @param messageType The type of message to listen for
+ * @returns The payload of the last message of the specified type, or undefined if none received
  */
-export const useDevvitListener = <T extends BlocksToWebviewMessage['type']>(eventType: T) => {
-  type Event = Extract<BlocksToWebviewMessage, { type: T }>;
-  const [data, setData] = useState<Event['payload'] | undefined>();
+export function useDevvitListener<T extends BlocksToWebviewMessage['type']>(
+  eventType: T
+): MessagePayload<T> | undefined {
+  const [data, setData] = useState<MessagePayload<T> | undefined>(undefined);
 
   useEffect(() => {
-    const messageHandler = (ev: MessageEvent<DevvitMessage>) => {
-      if (ev.data.type !== 'devvit-message') {
-        console.warn(`Received message with type ${ev.data.type} but expected 'devvit-message'`);
-        return;
-      }
+    // Handler for messages from Devvit
+    const messageHandler = (event: MessageEvent) => {
+      try {
+        if (event.data?.type === eventType) {
+          setData(event.data.payload);
+          return;
+        }
 
-      const message = ev.data.data.message;
-      if (message.type === eventType) {
-        setData(message.payload as any);
+        if (event.data?.type === 'devvit-message' && event.data.data?.message?.type === eventType) {
+          setData(event.data.data.message.payload);
+          return;
+        }
+      } catch (error) {
+        console.error('Error processing message:', error);
       }
     };
 
+    // Register event listener
     window.addEventListener('message', messageHandler);
-    return () => window.removeEventListener('message', messageHandler);
+    
+    // Log that we're listening for messages
+    console.log(`Listening for Devvit messages of type: ${eventType}`);
+    
+    // Cleanup function to remove listener
+    return () => {
+      window.removeEventListener('message', messageHandler);
+      console.log(`Stopped listening for Devvit messages of type: ${eventType}`);
+    };
   }, [eventType]);
 
   return data;
-};
+}
