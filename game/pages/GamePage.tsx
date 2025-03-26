@@ -7,6 +7,7 @@ import {
   renderGame, 
   processGameObjects, 
   fireBullet,
+  resetGameTimers,
   GameState,
   PlayerShip,
   GameObject 
@@ -186,18 +187,26 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     waveNumber.current = wave;
     waveStartTime.current = Date.now();
     
-    // Reset enemy spawn rate based on wave and difficulty
-    enemySpawnRate.current = Math.max(500, 2000 - (wave * 100) - (difficultyMultiplier.current * 50));
+    // Calculation for enemies per wave that scales with level
+    // Base of 3 enemies, +1 every level up to a reasonable cap
+    const baseEnemies = 2;  // Reduced from 3 to 2
+    const additionalEnemies = Math.min(Math.floor((wave - 1) / 2), 8); // Slower scaling, capped at +8  
+    const enemyCount = baseEnemies + additionalEnemies;
+
+    // Adjust spawn rate based on wave (becomes faster at higher waves)
+    enemySpawnRate.current = Math.max(
+      500, // Minimum spawn rate cap
+      2000 - (wave * 80) - (difficultyMultiplier.current * 50)
+    );
     
-    // Spawn initial enemies
-    const enemyCount = 2 + Math.floor(wave / 2) + Math.floor(difficultyMultiplier.current / 2);
     const canvas = canvasRef.current;
     
     spawnEnemies(
       canvas.width, 
       canvas.height, 
-      enemyCount, 
+      enemyCount,
       difficultyMultiplier.current, 
+      wave, // Pass the wave number for enemy type selection
       (enemy: GameObject) => {
         setGameState(prev => ({
           ...prev,
@@ -216,7 +225,7 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     if (wave > 1) {
       // This could be implemented with a visual notification
       // For now, we'll just adjust difficulty slightly for each wave
-      difficultyMultiplier.current = Math.min(difficultyMultiplier.current + 0.2, 10);
+      difficultyMultiplier.current = Math.min(difficultyMultiplier.current + 0.1, 10);
     }
   };
   
@@ -312,7 +321,8 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     
     const { newBullet, updatedPlayer } = fireBullet(
       gameStateRef.current, 
-      type
+      type,
+      gameStateRef.current.level // Pass current level for damage scaling
     );
     
     if (!newBullet) return;
@@ -340,13 +350,14 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     // Check if it's time to spawn a new enemy
     const now = Date.now();
     if (now - lastEnemySpawnTime.current > enemySpawnRate.current) {
-      // Spawn a new enemy and add to game state
+      // Spawn a new enemy and add to game state, passing current level
       const newEnemy = spawnRandomEnemy(
         canvas.width, 
         canvas.height, 
         difficultyMultiplier.current,
         canvas.width / 2,
-        canvas.height / 2
+        canvas.height / 2,
+        currentState.level // Pass current level
       );
       
       setGameState(prev => ({
@@ -398,7 +409,8 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
         canvas.width, 
         canvas.height, 
         waveEnemies, 
-        difficultyMultiplier.current, 
+        difficultyMultiplier.current,
+        currentState.level, // Pass current level 
         (enemy: GameObject) => {
           setGameState(prev => ({
             ...prev,
@@ -490,6 +502,12 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   const handleRestart = () => {
     if (!canvasRef.current) return;
     
+    // Reset game timers to fix acceleration bug
+    resetGameTimers();
+    
+    // Reset local timing references
+    lastTimeRef.current = 0;
+    
     setGameState({
       player: {
         x: canvasRef.current.width / 2,
@@ -518,6 +536,9 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     waveStartTime.current = Date.now();
     lastEnemySpawnTime.current = 0;
     enemySpawnRate.current = 2000;
+    
+    // Also reset difficulty multiplier to initial value
+    difficultyMultiplier.current = Math.min(Math.max(difficulty, 1), 10);
     
     // Start the first wave again
     startWave(1);
@@ -566,6 +587,14 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
           </div>
         </div>
       )}
+      
+      {/* Wave notification overlay (optional - could implement this) */}
+      {/* {showWaveNotification && (
+        <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center z-10 transition-opacity duration-1000">
+          <h2 className="text-4xl text-white font-bold">Wave {gameState.level}</h2>
+          <p className="text-xl text-[#8ca0bd]">Enemies are getting stronger!</p>
+        </div>
+      )} */}
       
       {/* Debug info overlay (hidden in production) */}
       {false && (

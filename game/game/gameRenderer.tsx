@@ -1,4 +1,4 @@
-import { updateEnemy, renderEnemy, createRandomEnemy } from './enemyTypes'; // Import createRandomEnemy from enemyTypes
+import { updateEnemy, renderEnemy, createRandomEnemy } from './enemyTypes';
 
 // Performance settings - tuned for better balance of performance and gameplay
 const PERFORMANCE = {
@@ -11,12 +11,12 @@ const PERFORMANCE = {
   CULL_DISTANCE: 2000,       // Increased culling distance
   FRAME_SKIP_THRESHOLD: 20,  // Higher threshold before skipping frames
   SPECIAL_AMMO_REFILL_TIME: 10000, // Time in ms to refill special ammo
-  SPAWN_RATE: 500,          // Milliseconds between enemy spawns (lower = more enemies)
-  MIN_ENEMIES: 8,           // Minimum number of enemies on screen
-  INITIAL_ENEMIES: 10,      // Number of enemies to spawn at the start
+  SPAWN_RATE: 1500,          // Milliseconds between enemy spawns (lower = more enemies)
+  MIN_ENEMIES: 4,           // Minimum number of enemies on screen
+  INITIAL_ENEMIES: 5,      // Number of enemies to spawn at the start
 };
 
-// Track global performance metrics
+// Track global performance metrics - these need to be reset when game restarts
 let lastFrameTime = 0;
 let frameTimes: number[] = [];
 let isLowPerformance = false;
@@ -24,6 +24,17 @@ let frameCounter = 0;
 let lastSpecialAmmoRefill = Date.now();
 let lastEnemyCleanupCheck = Date.now();
 let lastEnemySpawnTime = Date.now();
+
+// Export reset function to fix the acceleration bug
+export function resetGameTimers() {
+  lastFrameTime = 0;
+  frameTimes = [];
+  isLowPerformance = false;
+  frameCounter = 0;
+  lastSpecialAmmoRefill = Date.now();
+  lastEnemyCleanupCheck = Date.now();
+  lastEnemySpawnTime = Date.now();
+}
 
 // Define interfaces
 export interface GameObject {
@@ -174,13 +185,14 @@ export function processGameObjects(
   
   // Ensure minimum number of enemies
   if (enemyCount < PERFORMANCE.MIN_ENEMIES && !isLowPerformance) {
-    // Spawn new enemy immediately
+    // Spawn new enemy immediately with current level
     const newEnemy = createRandomEnemy(
       canvas.width, 
       canvas.height, 
       difficulty,
       canvas.width / 2,
-      canvas.height / 2
+      canvas.height / 2,
+      state.level // Pass current level
     );
     updatedObjects.push(newEnemy);
     console.log(`Spawned new enemy to maintain minimum: ${newEnemy.id}`);
@@ -370,7 +382,7 @@ export function processGameObjects(
           // Shielded enemies take reduced damage
           const damageReduction = enemy.special?.shielded ? 0.5 : 1;
           
-          // Hit an enemy
+          // Hit an enemy - bullet hp is now the damage it does
           enemy.hp -= Math.ceil(obj.hp * damageReduction);
           hitEnemy = true;
           
@@ -488,13 +500,14 @@ export function processGameObjects(
   
   // Check if it's time to spawn a new enemy - use more aggressive timing
   if (currentTime - lastEnemySpawnTime > PERFORMANCE.SPAWN_RATE) {
-    // Spawn a new enemy and add to game state
+    // Spawn a new enemy and add to game state, passing current level
     const newEnemy = createRandomEnemy(
       canvas.width, 
       canvas.height, 
       difficulty,
       canvas.width / 2,
-      canvas.height / 2
+      canvas.height / 2,
+      state.level // Pass current level
     );
     
     updatedObjects.push(newEnemy);
@@ -533,14 +546,16 @@ export function processGameObjects(
 }
 
 /**
- * Fire a bullet from the player
+ * Fire a bullet from the player with level-based damage
  * @param state Current game state
  * @param type Type of bullet to fire
+ * @param level Current game level for scaling damage
  * @returns New bullet and updated player state
  */
 export function fireBullet(
   state: GameState,
-  type: 'regular' | 'special'
+  type: 'regular' | 'special',
+  level: number = 1 // Add level parameter with default value
 ) {
   const { player, mouseX, mouseY } = state;
   
@@ -556,6 +571,11 @@ export function fireBullet(
   const vx = (dx / distance) * bulletSpeed;
   const vy = (dy / distance) * bulletSpeed;
   
+  // Increase bullet damage based on level (50% more damage at level 21+)
+  const levelDamageMultiplier = 1 + (Math.min(level - 1, 20) * 0.05);  // Changed from 0.025 to 0.05
+  const baseDamage = type === 'regular' ? 2 : 7;  // Increased from 1/5 to 2/7
+  const damage = Math.ceil(baseDamage * levelDamageMultiplier);
+
   // Create bullet
   const newBullet: GameObject = {
     id: Date.now() + Math.random(),
@@ -564,7 +584,7 @@ export function fireBullet(
     vx: vx,
     vy: vy,
     size: type === 'regular' ? 4 : 10,
-    hp: type === 'regular' ? 1 : 5,
+    hp: damage, // Bullet HP is now the damage it deals
     type: 'player-bullet',
     color: type === 'regular' ? '#60A5FA' : '#8B5CF6'
   };
@@ -841,7 +861,7 @@ function drawHUD(
   ctx.fillText(`Score: ${Math.floor(state.score)}`, 20, 30);
   
   // Level indicator
-  ctx.fillText(`Level: ${state.level}`, 20, 60);
+  ctx.fillText(`Wave: ${state.level}`, 20, 60);
   
   // Special ammo indicator
   ctx.fillText(`Special Ammo: ${state.player.specialAmmo}`, 20, 90);
@@ -861,6 +881,12 @@ function drawHUD(
     ctx.fillText('Shoot: Left Click', canvas.width / 2, canvas.height - 40);
     ctx.fillText('Special Attack: Right Click', canvas.width / 2, canvas.height - 20);
   }
+  
+  // Show current wave number
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.textAlign = 'right';
+  ctx.fillText(`Wave ${state.level}`, canvas.width - 20, 40);
   
   // Show game over text if game over
   if (state.gameOver) {

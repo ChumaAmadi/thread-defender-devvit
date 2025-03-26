@@ -100,20 +100,47 @@ const behaviorWeights = {
 };
 
 /**
- * Select a random enemy type based on difficulty
+ * Determine which enemy types are available based on level
+ * @param level Game level (wave number)
+ * @returns Array of available enemy types for this level
+ */
+export function getAvailableEnemyTypes(level: number): EnemyType[] {
+  // Base enemy types available from level 1
+  const availableTypes: EnemyType[] = ['basic'];
+  
+  // Gradually introduce more complex enemy types as levels increase
+  if (level >= 2) availableTypes.push('fast');
+  if (level >= 3) availableTypes.push('tank');
+  if (level >= 4) availableTypes.push('hunter');
+  if (level >= 5) availableTypes.push('bomber');
+  if (level >= 7) availableTypes.push('sniper');
+  if (level >= 9) availableTypes.push('teleporter');
+  if (level >= 11) availableTypes.push('shielded');
+  
+  return availableTypes;
+}
+
+/**
+ * Select a random enemy type based on difficulty and level
  * @param difficulty Game difficulty level (1-10)
+ * @param level Game level (wave number)
  * @returns The selected enemy type
  */
-export function selectRandomEnemyType(difficulty: number): EnemyType {
+export function selectRandomEnemyType(difficulty: number, level: number = 1): EnemyType {
+  // Get enemy types available at this level
+  const availableTypes = getAvailableEnemyTypes(level);
+  
   // Calculate weights adjusted for difficulty
   const adjustedWeights: Record<EnemyType, number> = {} as Record<EnemyType, number>;
   
   // Calculate total weight
   let totalWeight = 0;
   
-  for (const [type, weights] of Object.entries(enemySpawnWeights)) {
+  // Only consider weights for available enemy types
+  for (const type of availableTypes) {
+    const weights = enemySpawnWeights[type];
     const adjustedWeight = Math.max(0, weights.base + weights.perDifficulty * difficulty);
-    adjustedWeights[type as EnemyType] = adjustedWeight;
+    adjustedWeights[type] = adjustedWeight;
     totalWeight += adjustedWeight;
   }
   
@@ -129,7 +156,7 @@ export function selectRandomEnemyType(difficulty: number): EnemyType {
   }
   
   // Default fallback
-  return 'basic';
+  return availableTypes[0]; // Return the first available type as fallback
 }
 
 /**
@@ -172,6 +199,7 @@ export function selectRandomBehavior(difficulty: number): EnemyBehavior {
  * @param difficulty Game difficulty level (1-10)
  * @param centerX X coordinate of the center (obelisk)
  * @param centerY Y coordinate of the center (obelisk)
+ * @param level Game level (wave number)
  * @returns The created enemy object
  */
 export function createRandomEnemy(
@@ -179,10 +207,14 @@ export function createRandomEnemy(
   canvasHeight: number, 
   difficulty: number,
   centerX: number = canvasWidth / 2,
-  centerY: number = canvasHeight / 2
+  centerY: number = canvasHeight / 2,
+  level: number = 1
 ): GameObject {
-  // Select random enemy type and behavior based on difficulty
-  const enemyType = selectRandomEnemyType(difficulty);
+  // Calculate level speed multiplier (very subtle increase - just 1% per level, capped at 10%)
+  const levelSpeedMultiplier = 1 + (Math.min(level - 1, 10) * 0.01); // Max 10% increase at level 11+
+  
+  // Select random enemy type and behavior based on difficulty and level
+  const enemyType = selectRandomEnemyType(difficulty, level);
   const behavior = selectRandomBehavior(difficulty);
   
   // Get properties for this enemy type
@@ -192,7 +224,7 @@ export function createRandomEnemy(
   const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
   
   let x, y;
-  const buffer = 50; // Spawn slightly outside the canvas
+  const buffer = 100; // Increased buffer to ensure enemies spawn fully outside the screen
   
   switch (side) {
     case 0: // top
@@ -221,14 +253,23 @@ export function createRandomEnemy(
   const dy = centerY - y;
   const distance = Math.sqrt(dx * dx + dy * dy);
   
-  // Normalize direction and set velocity
-  const baseSpeed = 1 + (difficulty * 0.2);
+  // Normalize direction and set velocity with very minimal level-based speed scaling
+  const baseSpeed = (1 + (difficulty * 0.2)) * levelSpeedMultiplier;
   const speedVariation = Math.random() * 0.3 + 0.85; // 0.85 to 1.15
   const speed = baseSpeed * speedVariation * props.speedMult;
   
   // Default velocities (direct path to obelisk)
   let vx = (dx / distance) * speed;
   let vy = (dy / distance) * speed;
+  
+  // Ensure minimum velocity component to prevent getting stuck
+  const minVelocityComponent = 0.1 * speed;
+  if (Math.abs(vx) < minVelocityComponent) {
+    vx = vx >= 0 ? minVelocityComponent : -minVelocityComponent;
+  }
+  if (Math.abs(vy) < minVelocityComponent) {
+    vy = vy >= 0 ? minVelocityComponent : -minVelocityComponent;
+  }
   
   // Adjust velocity based on behavior
   switch (behavior) {
@@ -268,9 +309,10 @@ export function createRandomEnemy(
   const sizeMultiplier = 1 + (difficulty * 0.1); // 1.1 - 2.0
   const size = baseSize * sizeMultiplier * props.sizeMult;
   
-  // HP based on size, type, and difficulty
+  // HP based on size, type, and difficulty (scale with level but not too quickly)
+  const levelHpMultiplier = 1 + (Math.min(level - 1, 15) * 0.03); // Up to 45% more HP at level 16+
   const baseHp = Math.ceil(size / 3);
-  const hp = Math.ceil(baseHp * props.hpMult) + Math.floor(difficulty);
+  const hp = Math.ceil(baseHp * props.hpMult * levelHpMultiplier) + Math.floor(difficulty);
   
   // Create special properties
   const special: any = {};
@@ -316,9 +358,20 @@ export function createRandomEnemy(
  * @param playerX X coordinate of player
  * @param playerY Y coordinate of player
  * @param difficulty Game difficulty
+ * @param canvasWidth Width of the game canvas
+ * @param canvasHeight Height of the game canvas
  */
 export function updateEnemy(
-enemy: GameObject, deltaTime: number, centerX: number, centerY: number, playerX: number, playerY: number, difficulty: number, width: number, height: number): void {
+  enemy: GameObject, 
+  deltaTime: number,
+  centerX: number,
+  centerY: number,
+  playerX: number,
+  playerY: number,
+  difficulty: number,
+  canvasWidth: number = 800,
+  canvasHeight: number = 600
+): void {
   if (enemy.type !== 'enemy') return;
   
   const now = Date.now();
@@ -360,6 +413,33 @@ enemy: GameObject, deltaTime: number, centerX: number, centerY: number, playerX:
   // Normalize direction vectors
   const ndxTarget = dxTarget / distanceToTarget;
   const ndyTarget = dyTarget / distanceToTarget;
+  
+  // Check if enemy is stuck at boundary
+  const boundaryBuffer = 10;
+  const isAtLeftBoundary = enemy.x <= boundaryBuffer;
+  const isAtRightBoundary = enemy.x >= canvasWidth - boundaryBuffer;
+  const isAtTopBoundary = enemy.y <= boundaryBuffer;
+  const isAtBottomBoundary = enemy.y >= canvasHeight - boundaryBuffer;
+  
+  // Force correction if stuck at boundary
+  if (isAtLeftBoundary || isAtRightBoundary || isAtTopBoundary || isAtBottomBoundary) {
+    // Increase attraction force to push away from boundaries
+    attractionForce *= 3;
+    
+    // Ensure minimum velocity components toward center
+    if (isAtLeftBoundary && enemy.vx <= 0) {
+      enemy.vx = 0.5 + (difficulty * 0.1);
+    }
+    if (isAtRightBoundary && enemy.vx >= 0) {
+      enemy.vx = -0.5 - (difficulty * 0.1);
+    }
+    if (isAtTopBoundary && enemy.vy <= 0) {
+      enemy.vy = 0.5 + (difficulty * 0.1);
+    }
+    if (isAtBottomBoundary && enemy.vy >= 0) {
+      enemy.vy = -0.5 - (difficulty * 0.1);
+    }
+  }
   
   // Update velocity based on behavior
   switch (enemy.behavior) {
@@ -479,6 +559,26 @@ enemy: GameObject, deltaTime: number, centerX: number, centerY: number, playerX:
   const drag = 0.02;
   enemy.vx *= (1 - drag);
   enemy.vy *= (1 - drag);
+  
+  // Handle screen boundary wrap-around or bounce if enemy is off-screen
+  const offScreenBuffer = enemy.size * 2;
+  
+  // Check if enemy is completely off-screen and has been moving away from the center
+  if (
+    (enemy.x < -offScreenBuffer && enemy.vx < 0) ||
+    (enemy.x > canvasWidth + offScreenBuffer && enemy.vx > 0) ||
+    (enemy.y < -offScreenBuffer && enemy.vy < 0) ||
+    (enemy.y > canvasHeight + offScreenBuffer && enemy.vy > 0)
+  ) {
+    // Force enemy to move back toward the center
+    const centerDx = centerX - enemy.x;
+    const centerDy = centerY - enemy.y;
+    const centerDist = Math.sqrt(centerDx * centerDx + centerDy * centerDy);
+    
+    // Set velocity directly toward center
+    enemy.vx = (centerDx / centerDist) * maxSpeed;
+    enemy.vy = (centerDy / centerDist) * maxSpeed;
+  }
 }
 
 /**
@@ -488,6 +588,21 @@ enemy: GameObject, deltaTime: number, centerX: number, centerY: number, playerX:
  */
 export function renderEnemy(ctx: CanvasRenderingContext2D, enemy: GameObject): void {
   if (enemy.type !== 'enemy') return;
+  
+  // Skip rendering if enemy is outside the canvas (with a buffer)
+  const canvasWidth = ctx.canvas.width;
+  const canvasHeight = ctx.canvas.height;
+  const renderBuffer = enemy.size * 3; // Buffer zone for rendering
+  
+  // Early return if enemy is completely outside the rendering area
+  if (
+    enemy.x < -renderBuffer ||
+    enemy.x > canvasWidth + renderBuffer ||
+    enemy.y < -renderBuffer ||
+    enemy.y > canvasHeight + renderBuffer
+  ) {
+    return;
+  }
   
   // Base enemy rendering - circle with color based on type
   ctx.beginPath();
@@ -585,7 +700,6 @@ export function renderEnemy(ctx: CanvasRenderingContext2D, enemy: GameObject): v
       ctx.arc(enemy.x, enemy.y, enemy.size * 0.6, 0, Math.PI * 2);
       ctx.fillStyle = '#7C3AED'; // Violet-600
       ctx.fill();
-      
       // Draw targeting line
       if (enemy.targetX !== undefined && enemy.targetY !== undefined) {
         ctx.beginPath();
