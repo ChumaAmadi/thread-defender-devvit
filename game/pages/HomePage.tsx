@@ -31,6 +31,14 @@ export const HomePage = ({ postId }: { postId: string }) => {
   const shipPreviewRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState('');
 
+  // Load high score from localStorage
+  useEffect(() => {
+    const savedHighScore = localStorage.getItem('highScore');
+    if (savedHighScore) {
+      setHighScore(parseInt(savedHighScore, 10));
+    }
+  }, []);
+
   // Simulate ship movement in preview
   useEffect(() => {
     if (!shipPreviewRef.current) return;

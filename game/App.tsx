@@ -1,10 +1,11 @@
+import React, { useState, useEffect } from 'react';
 import { Page } from './shared';
 import { HomePage } from './pages/HomePage';
 import { GamePage } from './pages/GamePage';
 import ShopPage from './pages/ShopPage';
 import HelpPage from './pages/HelpPage';
+import { OptionsPage } from './pages/OptionsPage';
 import { usePage } from './hooks/usePage';
-import { useEffect, useState } from 'react';
 import { sendToDevvit } from './utils';
 import { useDevvitListener } from './hooks/useDevvitListener';
 
@@ -25,7 +26,7 @@ const getPage = (page: Page, { postId, difficulty }: { postId: string, difficult
     case 'shop':
       return <ShopPage />;
     case 'options':
-      return <ComingSoonPage page="Options" />;
+      return <OptionsPage />;
     case 'help':
       return <HelpPage />;
     default:
@@ -34,7 +35,7 @@ const getPage = (page: Page, { postId, difficulty }: { postId: string, difficult
 };
 
 export const App = () => {
-  const [postId, setPostId] = useState('');
+  const [postId, setPostId] = useState<string>('');
   const [difficulty, setDifficulty] = useState(1);
   const page = usePage();
   const initData = useDevvitListener('INIT_RESPONSE');

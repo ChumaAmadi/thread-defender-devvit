@@ -355,10 +355,18 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   // Handle game over
   useEffect(() => {
     if (gameState.gameOver) {
+      // Save high score to localStorage
+      const currentHighScore = parseInt(localStorage.getItem('highScore') || '0', 10);
+      const finalScore = Math.floor(gameState.score);
+      
+      if (finalScore > currentHighScore) {
+        localStorage.setItem('highScore', finalScore.toString());
+      }
+      
       // Send game over event to Devvit
       sendToDevvit({
         type: 'GAME_OVER',
-        payload: { score: Math.floor(gameState.score) }
+        payload: { score: finalScore }
       });
     }
   }, [gameState.gameOver]);
@@ -783,6 +791,22 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
           className="w-full h-full"
           style={{ touchAction: 'none' }}
         />
+      </div>
+      
+      {/* Game controls */}
+      <div className="absolute bottom-4 left-4 flex gap-2">
+        <button
+          onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
+          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+        >
+          {gameState.isPaused ? '▶️' : '⏸️'}
+        </button>
+        <button
+          onClick={handleMenu}
+          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+        >
+          🚪
+        </button>
       </div>
       
       {/* Active powerup indicators */}
