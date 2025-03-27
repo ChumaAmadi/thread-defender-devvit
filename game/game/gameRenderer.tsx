@@ -1,5 +1,19 @@
 import { updateEnemy, renderEnemy, createRandomEnemy } from './enemyTypes';
 
+// Declare starfield type
+declare global {
+  interface Window {
+    starfield?: Array<{
+      x: number;
+      y: number;
+      size: number;
+      speed: number;
+      brightness: number;
+      twinkleSpeed: number;
+    }>;
+  }
+}
+
 // Performance settings - tuned for better balance of performance and gameplay
 const PERFORMANCE = {
   MAX_ACTIVE_EXPLOSIONS: 15,  // Increased max explosions
@@ -613,9 +627,8 @@ export function renderGame(
   // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Draw space background
-  ctx.fillStyle = '#000022';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Draw space background with stars
+  drawSpaceBackground(ctx, canvas, frameCounter);
   
   // Draw obelisk
   const centerX = canvas.width / 2;
@@ -645,6 +658,80 @@ export function renderGame(
   
   // Draw HUD
   drawHUD(ctx, state, canvas);
+}
+
+// Star field background
+function drawSpaceBackground(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  frameCount: number
+) {
+  // Deep space gradient background
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, '#000033');  // Deep blue at top
+  gradient.addColorStop(1, '#000022');  // Slightly lighter blue at bottom
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Use a pre-defined set of stars for consistency
+  if (!window.starfield) {
+    // Initialize starfield once
+    window.starfield = Array.from({length: 150}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2 + 0.5,
+      speed: Math.random() * 0.2 + 0.1,
+      brightness: Math.random() * 0.8 + 0.2,
+      twinkleSpeed: Math.random() * 0.05 + 0.01
+    }));
+  }
+  
+  // Draw each star
+  window.starfield.forEach(star => {
+    // Calculate twinkle effect
+    const twinkle = Math.sin(frameCount * star.twinkleSpeed) * 0.3 + 0.7;
+    const opacity = star.brightness * twinkle;
+    
+    // Draw star
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+    ctx.fill();
+    
+    // Move star slightly for parallax effect
+    star.y += star.speed;
+    
+    // Wrap around if off screen
+    if (star.y > canvas.height) {
+      star.y = 0;
+      star.x = Math.random() * canvas.width;
+    }
+  });
+  
+  // Optional: Add distant nebula/galaxy effects
+  drawNebula(ctx, canvas.width * 0.7, canvas.height * 0.3, 80, frameCount);
+}
+
+// Draw a simple nebula/galaxy effect
+function drawNebula(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  frameCount: number
+) {
+  const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+  const hue = (frameCount * 0.01) % 360;
+  
+  gradient.addColorStop(0, `hsla(${hue}, 70%, 40%, 0.3)`);
+  gradient.addColorStop(0.5, `hsla(${hue + 30}, 70%, 30%, 0.1)`);
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
 }
 
 /**

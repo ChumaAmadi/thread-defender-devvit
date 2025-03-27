@@ -10,6 +10,6 @@
     "moduleResolution": "NodeNext",
     "types": ["@devvit/public-api"]
   },
-  "include": ["./src/**/*"],
+  "include": ["./src/**/*", "./global.d.ts"],
   "extends": "@devvit/public-api/devvit.tsconfig.json"
 }

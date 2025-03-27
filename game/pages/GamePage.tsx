@@ -18,6 +18,7 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef<GameState | null>(null);
   const animationFrameRef = useRef<number>(0);
+  const shootingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const setPage = useSetPage();
   const [gameState, setGameState] = useState<GameState>({
     player: {
@@ -176,6 +177,11 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
+      
+      if (shootingIntervalRef.current) {
+        clearInterval(shootingIntervalRef.current);
+        shootingIntervalRef.current = null;
+      }
     };
   }, []);
   
@@ -187,12 +193,11 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     waveNumber.current = wave;
     waveStartTime.current = Date.now();
     
-    // Calculation for enemies per wave that scales with level
-    // Base of 3 enemies, +1 every level up to a reasonable cap
+    // Calculation for enemies per wave that scales with level - but with fewer enemies
     const baseEnemies = 2;  // Reduced from 3 to 2
-    const additionalEnemies = Math.min(Math.floor((wave - 1) / 2), 8); // Slower scaling, capped at +8  
+    const additionalEnemies = Math.min(Math.floor((wave - 1) / 2), 8); // Slower scaling, capped at +8
     const enemyCount = baseEnemies + additionalEnemies;
-
+    
     // Adjust spawn rate based on wave (becomes faster at higher waves)
     enemySpawnRate.current = Math.max(
       500, // Minimum spawn rate cap
@@ -231,16 +236,23 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   
   // Start the game loop
   const startGameLoop = () => {
+    // Cancel any existing animation frame
     if (requestRef.current) {
       cancelAnimationFrame(requestRef.current);
+      requestRef.current = undefined;
     }
+    
+    // Reset lastTimeRef to ensure first frame has clean timing
+    lastTimeRef.current = 0;
     
     const gameLoop = (time: number) => {
       if (!lastTimeRef.current) {
         lastTimeRef.current = time;
+        requestRef.current = requestAnimationFrame(gameLoop);
+        return; // Skip first frame calculations to avoid huge delta
       }
       
-      const deltaTime = time - lastTimeRef.current;
+      const deltaTime = Math.min(time - lastTimeRef.current, 33); // Cap at ~30fps equivalent
       lastTimeRef.current = time;
       
       // Calculate FPS
@@ -272,11 +284,11 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       }
       
       // Continue the game loop
-      animationFrameRef.current = requestAnimationFrame(gameLoop);
+      requestRef.current = requestAnimationFrame(gameLoop);
     };
     
     // Start the loop
-    animationFrameRef.current = requestAnimationFrame(gameLoop);
+    requestRef.current = requestAnimationFrame(gameLoop);
   };
   
   // Handle game over
@@ -294,8 +306,14 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   useEffect(() => {
     if (gameState.isPaused || gameState.gameOver) return;
     
+    // Clear any existing interval first
+    if (shootingIntervalRef.current) {
+      clearInterval(shootingIntervalRef.current);
+      shootingIntervalRef.current = null;
+    }
+    
     // Handle shooting in a separate interval
-    const shootingInterval = setInterval(() => {
+    shootingIntervalRef.current = setInterval(() => {
       if (!gameStateRef.current) return;
       
       const currentTime = Date.now();
@@ -312,7 +330,12 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       }
     }, 16); // Check roughly every frame
     
-    return () => clearInterval(shootingInterval);
+    return () => {
+      if (shootingIntervalRef.current) {
+        clearInterval(shootingIntervalRef.current);
+        shootingIntervalRef.current = null;
+      }
+    };
   }, [gameState.isPaused, gameState.gameOver]);
   
   // Handle firing a bullet
@@ -502,11 +525,23 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   const handleRestart = () => {
     if (!canvasRef.current) return;
     
-    // Reset game timers to fix acceleration bug
+    // IMPORTANT: Cancel the current animation frame before starting a new one
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = 0;
+    }
+    
+    // Reset game timers in gameRenderer.tsx
     resetGameTimers();
     
-    // Reset local timing references
-    lastTimeRef.current = 0;
+    // Reset ALL local timing references
+    lastTimeRef.current = 0; // This is crucial
+    
+    // Reset ANY intervals that might be running
+    if (shootingIntervalRef.current) {
+      clearInterval(shootingIntervalRef.current);
+      shootingIntervalRef.current = null;
+    }
     
     setGameState({
       player: {
@@ -540,15 +575,28 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     // Also reset difficulty multiplier to initial value
     difficultyMultiplier.current = Math.min(Math.max(difficulty, 1), 10);
     
-    // Start the first wave again
-    startWave(1);
-    
-    // Restart game loop
-    startGameLoop();
+    // Add a small delay before starting the game loop again
+    setTimeout(() => {
+      // Start the first wave again
+      startWave(1);
+      
+      // Restart game loop
+      startGameLoop();
+    }, 50);
   };
   
   // Handle return to menu button click
   const handleMenu = () => {
+    // Clean up any running processes before navigating away
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+    }
+    
+    if (shootingIntervalRef.current) {
+      clearInterval(shootingIntervalRef.current);
+      shootingIntervalRef.current = null;
+    }
+    
     setPage('home');
   };
   
