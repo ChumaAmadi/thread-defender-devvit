@@ -345,6 +345,7 @@ export function createRandomEnemy(
     behavior,
     color: enemyColors[enemyType],
     spawnTime: Date.now(),
+    icon: '👾',
     special
   };
 }

@@ -1,6 +1,8 @@
 import { Page } from './shared';
 import { HomePage } from './pages/HomePage';
 import { GamePage } from './pages/GamePage';
+import ShopPage from './pages/ShopPage';
+import HelpPage from './pages/HelpPage';
 import { usePage } from './hooks/usePage';
 import { useEffect, useState } from 'react';
 import { sendToDevvit } from './utils';
@@ -21,11 +23,11 @@ const getPage = (page: Page, { postId, difficulty }: { postId: string, difficult
     case 'game':
       return <GamePage postId={postId} difficulty={difficulty} />;
     case 'shop':
-      return <ComingSoonPage page="Shop" />;
+      return <ShopPage />;
     case 'options':
       return <ComingSoonPage page="Options" />;
     case 'help':
-      return <ComingSoonPage page="Help" />;
+      return <HelpPage />;
     default:
       throw new Error(`Unknown page: ${page satisfies never}`);
   }

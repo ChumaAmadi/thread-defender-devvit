@@ -1,9 +1,7 @@
-import { updateEnemy, renderEnemy, createRandomEnemy } from './enemyTypes';
-
-// Declare starfield type
+// Add type declaration for starfield
 declare global {
   interface Window {
-    starfield?: Array<{
+    starfield: Array<{
       x: number;
       y: number;
       size: number;
@@ -13,6 +11,9 @@ declare global {
     }>;
   }
 }
+
+import { updateEnemy, renderEnemy, createRandomEnemy } from './enemyTypes';
+import { renderPowerup } from './powerups';
 
 // Performance settings - tuned for better balance of performance and gameplay
 const PERFORMANCE = {
@@ -25,9 +26,9 @@ const PERFORMANCE = {
   CULL_DISTANCE: 2000,       // Increased culling distance
   FRAME_SKIP_THRESHOLD: 20,  // Higher threshold before skipping frames
   SPECIAL_AMMO_REFILL_TIME: 10000, // Time in ms to refill special ammo
-  SPAWN_RATE: 1500,          // Milliseconds between enemy spawns (lower = more enemies)
-  MIN_ENEMIES: 4,           // Minimum number of enemies on screen
-  INITIAL_ENEMIES: 5,      // Number of enemies to spawn at the start
+  SPAWN_RATE: 1500,          // Increased from 500 to 1500 (longer time between spawns)
+  MIN_ENEMIES: 4,            // Reduced from 8 to 4 (fewer minimum enemies)
+  INITIAL_ENEMIES: 5,        // Reduced from 10 to 5 (fewer initial enemies)
 };
 
 // Track global performance metrics - these need to be reset when game restarts
@@ -59,13 +60,16 @@ export interface GameObject {
   vy: number;
   size: number;
   hp: number;
-  type: 'enemy' | 'bullet' | 'player-bullet' | 'explosion';
+  type: 'enemy' | 'bullet' | 'player-bullet' | 'explosion' | 'powerup';
   subType?: string;
   color?: string;
   behavior?: string;
   spawnTime?: number;
   targetX?: number;
   targetY?: number;
+  icon?: string;
+  duration?: number;
+  createdAt?: number;
   special?: {
     attackCooldown?: number;
     lastAttack?: number;
@@ -130,6 +134,7 @@ export function createExplosion(x: number, y: number, size: number): GameObject 
     explosion.y = y;
     explosion.size = size;
     explosion.hp = PERFORMANCE.EXPLOSION_DURATION;
+    explosion.icon = '💥';
   } else {
     explosion = {
       id: Date.now() + Math.random(),
@@ -137,7 +142,8 @@ export function createExplosion(x: number, y: number, size: number): GameObject 
       vx: 0, vy: 0,
       size,
       hp: PERFORMANCE.EXPLOSION_DURATION,
-      type: 'explosion'
+      type: 'explosion',
+      icon: '💥'
     };
   }
   
@@ -509,6 +515,17 @@ export function processGameObjects(
       }
       
       updatedObjects.push(obj);
+    } else if (obj.type === 'powerup') {
+      // Update powerup position (slow falling motion)
+      obj.y += obj.vy;
+      
+      // Check if powerup is off screen
+      if (obj.y > canvas.height + obj.size) {
+        objectsToRemove.add(obj.id);
+        continue;
+      }
+      
+      updatedObjects.push(obj);
     }
   }
   
@@ -585,11 +602,11 @@ export function fireBullet(
   const vx = (dx / distance) * bulletSpeed;
   const vy = (dy / distance) * bulletSpeed;
   
-  // Increase bullet damage based on level (50% more damage at level 21+)
-  const levelDamageMultiplier = 1 + (Math.min(level - 1, 20) * 0.05);  // Changed from 0.025 to 0.05
-  const baseDamage = type === 'regular' ? 2 : 7;  // Increased from 1/5 to 2/7
+  // Increase bullet damage based on level (100% more damage at level 21+)
+  const levelDamageMultiplier = 1 + (Math.min(level - 1, 20) * 0.05); 
+  const baseDamage = type === 'regular' ? 3 : 9; // Increased from 2/7 to 3/9
   const damage = Math.ceil(baseDamage * levelDamageMultiplier);
-
+  
   // Create bullet
   const newBullet: GameObject = {
     id: Date.now() + Math.random(),
@@ -600,7 +617,8 @@ export function fireBullet(
     size: type === 'regular' ? 4 : 10,
     hp: damage, // Bullet HP is now the damage it deals
     type: 'player-bullet',
-    color: type === 'regular' ? '#60A5FA' : '#8B5CF6'
+    color: type === 'regular' ? '#60A5FA' : '#8B5CF6',
+    icon: type === 'regular' ? '⚡' : '💫'
   };
   
   // Update last fire time and special ammo if needed
@@ -627,8 +645,41 @@ export function renderGame(
   // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Draw space background with stars
-  drawSpaceBackground(ctx, canvas, frameCounter);
+  // Draw space background
+  ctx.fillStyle = '#000022';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Initialize starfield if it doesn't exist
+  if (!window.starfield) {
+    window.starfield = Array.from({ length: 100 }, () => ({  // Reduced from 200 to 100 stars
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 1.5 + 0.5,  // Reduced size variation (0.5-2 instead of 1-3)
+      speed: Math.random() * 0.3 + 0.2,  // More consistent speed (0.2-0.5 instead of 0.1-0.6)
+      brightness: Math.random() * 0.5 + 0.5,  // Increased minimum brightness (0.5-1 instead of 0-1)
+      twinkleSpeed: Math.random() * 0.03 + 0.02  // Reduced twinkle variation
+    }));
+  }
+
+  // Draw stars
+  for (const star of window.starfield) {
+    // Update star position
+    star.y += star.speed;
+    if (star.y > canvas.height) {
+      star.y = 0;
+      star.x = Math.random() * canvas.width;
+    }
+
+    // Calculate star brightness with twinkling effect
+    const twinkle = Math.sin(Date.now() * star.twinkleSpeed) * 0.3 + 0.7;
+    const alpha = star.brightness * twinkle;
+
+    // Draw star
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fill();
+  }
   
   // Draw obelisk
   const centerX = canvas.width / 2;
@@ -650,6 +701,15 @@ export function renderGame(
       drawExplosion(ctx, obj, lowQuality);
     } else if (obj.type === 'player-bullet') {
       drawBullet(ctx, obj, lowQuality);
+    } else if (obj.type === 'powerup') {
+      renderPowerup(ctx, obj);
+      // Debug visualization for powerup hitbox
+      if (false) { // Set to true to debug
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.size, 0, Math.PI * 2);
+        ctx.strokeStyle = 'red';
+        ctx.stroke();
+      }
     }
   }
   
@@ -658,80 +718,6 @@ export function renderGame(
   
   // Draw HUD
   drawHUD(ctx, state, canvas);
-}
-
-// Star field background
-function drawSpaceBackground(
-  ctx: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
-  frameCount: number
-) {
-  // Deep space gradient background
-  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  gradient.addColorStop(0, '#000033');  // Deep blue at top
-  gradient.addColorStop(1, '#000022');  // Slightly lighter blue at bottom
-  
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // Use a pre-defined set of stars for consistency
-  if (!window.starfield) {
-    // Initialize starfield once
-    window.starfield = Array.from({length: 150}, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      size: Math.random() * 2 + 0.5,
-      speed: Math.random() * 0.2 + 0.1,
-      brightness: Math.random() * 0.8 + 0.2,
-      twinkleSpeed: Math.random() * 0.05 + 0.01
-    }));
-  }
-  
-  // Draw each star
-  window.starfield.forEach(star => {
-    // Calculate twinkle effect
-    const twinkle = Math.sin(frameCount * star.twinkleSpeed) * 0.3 + 0.7;
-    const opacity = star.brightness * twinkle;
-    
-    // Draw star
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-    ctx.fill();
-    
-    // Move star slightly for parallax effect
-    star.y += star.speed;
-    
-    // Wrap around if off screen
-    if (star.y > canvas.height) {
-      star.y = 0;
-      star.x = Math.random() * canvas.width;
-    }
-  });
-  
-  // Optional: Add distant nebula/galaxy effects
-  drawNebula(ctx, canvas.width * 0.7, canvas.height * 0.3, 80, frameCount);
-}
-
-// Draw a simple nebula/galaxy effect
-function drawNebula(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  frameCount: number
-) {
-  const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
-  const hue = (frameCount * 0.01) % 360;
-  
-  gradient.addColorStop(0, `hsla(${hue}, 70%, 40%, 0.3)`);
-  gradient.addColorStop(0.5, `hsla(${hue + 30}, 70%, 30%, 0.1)`);
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  
-  ctx.beginPath();
-  ctx.arc(x, y, size, 0, Math.PI * 2);
-  ctx.fillStyle = gradient;
-  ctx.fill();
 }
 
 /**
@@ -957,6 +943,8 @@ function drawHUD(
   if (false) { // Set to true for debugging
     ctx.fillText(`Enemies: ${state.objects.filter(o => o.type === 'enemy').length}`, 20, 120);
     ctx.fillText(`Total Objects: ${state.objects.length}`, 20, 150);
+    // Add powerup count for debugging
+    ctx.fillText(`Powerups: ${state.objects.filter(o => o.type === 'powerup').length}`, 20, 180);
   }
   
   // Instructions (only show for first few seconds)

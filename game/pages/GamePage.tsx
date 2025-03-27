@@ -13,6 +13,13 @@ import {
   GameObject 
 } from '../game/gameRenderer';
 import { spawnEnemies, spawnRandomEnemy } from '../game/enemyManager';
+import { 
+  createPowerup, 
+  applyPowerup, 
+  ActiveEffects,
+  powerupDurations
+} from '../game/powerups';
+import { audioManager } from '../audio/audioManager';
 
 export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficulty?: number }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,6 +50,15 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     isRightMouseDown: false
   });
   
+  // New state for active powerup effects
+  const [activeEffects, setActiveEffects] = useState<ActiveEffects>({});
+  const activeEffectsRef = useRef<ActiveEffects>({});
+  
+  // Update the ref when activeEffects changes
+  useEffect(() => {
+    activeEffectsRef.current = activeEffects;
+  }, [activeEffects]);
+  
   // Game loop using requestAnimationFrame
   const lastTimeRef = useRef<number>(0);
   const requestRef = useRef<number>();
@@ -63,6 +79,47 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+  
+  // Process powerup effects
+  useEffect(() => {
+    const effectsInterval = setInterval(() => {
+      const now = Date.now();
+      let effectsUpdated = false;
+      const updatedEffects = { ...activeEffects };
+      
+      // Process each active effect
+      if (updatedEffects.shield?.active && now > updatedEffects.shield.endTime) {
+        updatedEffects.shield.active = false;
+        effectsUpdated = true;
+      }
+      
+      if (updatedEffects.rapidFire?.active && now > updatedEffects.rapidFire.endTime) {
+        updatedEffects.rapidFire.active = false;
+        
+        // Reset fire rate
+        setGameState(prev => ({
+          ...prev,
+          player: {
+            ...prev.player,
+            fireRate: updatedEffects.rapidFire?.originalFireRate || 200
+          }
+        }));
+        
+        effectsUpdated = true;
+      }
+      
+      if (updatedEffects.infiniteSpecial?.active && now > updatedEffects.infiniteSpecial.endTime) {
+        updatedEffects.infiniteSpecial.active = false;
+        effectsUpdated = true;
+      }
+      
+      if (effectsUpdated) {
+        setActiveEffects(updatedEffects);
+      }
+    }, 100);
+    
+    return () => clearInterval(effectsInterval);
+  }, [activeEffects]);
   
   // Setup game
   useEffect(() => {
@@ -220,10 +277,14 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       }
     );
     
-    // Update game state with new wave number
+    // Health regeneration after wave completion (5% per wave, more at higher waves)
+    const healthRegen = Math.min(20, 5 + Math.floor(wave / 5) * 2);
+    
+    // Update game state with new wave number and health regeneration
     setGameState(prev => ({
       ...prev,
-      level: wave
+      level: wave,
+      obeliskHealth: Math.min(100, prev.obeliskHealth + healthRegen)
     }));
     
     // If it's not the first wave, show a wave notification
@@ -325,8 +386,11 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       }
       
       // Check if right mouse button is pressed and cooldown has passed
-      if (isRightMouseDown && player.specialAmmo > 0 && (currentTime - player.lastFireTime >= player.fireRate * 3)) {
-        handleFireBullet('special');
+      if (isRightMouseDown && (currentTime - player.lastFireTime >= player.fireRate * 3)) {
+        // Only use special if we have ammo or infinite special is active
+        if (player.specialAmmo > 0 || activeEffectsRef.current.infiniteSpecial?.active) {
+          handleFireBullet('special');
+        }
       }
     }, 16); // Check roughly every frame
     
@@ -338,22 +402,61 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     };
   }, [gameState.isPaused, gameState.gameOver]);
   
-  // Handle firing a bullet
+  // Add audio state
+  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(0.5);
+
+  // Initialize audio
+  useEffect(() => {
+    // Set initial volume
+    audioManager.setVolume(volume);
+    
+    // Start background music
+    audioManager.playMusic();
+
+    // Cleanup on unmount
+    return () => {
+      audioManager.stopMusic();
+    };
+  }, []);
+
+  // Handle volume changes
+  useEffect(() => {
+    audioManager.setVolume(volume);
+  }, [volume]);
+
+  // Handle mute changes
+  useEffect(() => {
+    audioManager.setMute(isMuted);
+  }, [isMuted]);
+
+  // Modify handleFireBullet to play sound
   const handleFireBullet = (type: 'regular' | 'special') => {
     if (!gameStateRef.current) return;
+    
+    // Play appropriate sound
+    audioManager.playSound(type === 'regular' ? 'shoot' : 'specialShoot');
+    
+    // Check if we can use special without consuming ammo
+    const hasInfiniteSpecial = activeEffectsRef.current.infiniteSpecial?.active || false;
     
     const { newBullet, updatedPlayer } = fireBullet(
       gameStateRef.current, 
       type,
-      gameStateRef.current.level // Pass current level for damage scaling
+      gameStateRef.current.level
     );
     
     if (!newBullet) return;
     
-    // Add bullet to game objects using a functional state update
+    // If we have infinite special, don't reduce ammo
+    const finalPlayer = type === 'special' && hasInfiniteSpecial ? {
+      ...updatedPlayer,
+      specialAmmo: gameStateRef.current.player.specialAmmo
+    } : updatedPlayer;
+    
     setGameState(prev => ({
       ...prev,
-      player: updatedPlayer,
+      player: finalPlayer,
       objects: [...prev.objects, newBullet]
     }));
   };
@@ -364,8 +467,12 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     const currentState = { ...gameStateRef.current };
     const canvas = canvasRef.current;
     
+    // Update player position
+    updatePlayerPosition(currentState, canvas, deltaTime);
+    
     // Check for game over
     if (currentState.obeliskHealth <= 0) {
+      audioManager.playSound('gameOver');
       setGameState(prev => ({ ...prev, gameOver: true }));
       return;
     }
@@ -380,7 +487,7 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
         difficultyMultiplier.current,
         canvas.width / 2,
         canvas.height / 2,
-        currentState.level // Pass current level
+        currentState.level
       );
       
       setGameState(prev => ({
@@ -400,12 +507,54 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     // Check if it's time for a new wave
     const waveTime = 30000 + (waveNumber.current * 5000); // Each wave gets longer
     if (now - waveStartTime.current > waveTime) {
+      // Play wave start sound
+      audioManager.playSound('waveStart');
       // Start next wave
       startWave(waveNumber.current + 1);
     }
     
-    // Update player position
-    updatePlayerPosition(currentState, canvas, deltaTime);
+    // Process powerup collection
+    const playerPowerups = currentState.objects.filter(obj => obj.type === 'powerup');
+    for (const powerup of playerPowerups) {
+      const dx = powerup.x - currentState.player.x;
+      const dy = powerup.y - currentState.player.y;
+      const distanceSquared = dx * dx + dy * dy;
+      const collisionRadiusSquared = Math.pow(powerup.size + currentState.player.size, 2);
+      
+      if (distanceSquared < collisionRadiusSquared) {
+        // Play appropriate powerup sound based on type
+        switch (powerup.subType) {
+          case 'shield':
+            audioManager.playSound('shield');
+            break;
+          case 'rapidFire':
+            audioManager.playSound('rapidFire');
+            break;
+          case 'infiniteSpecial':
+            audioManager.playSound('infiniteSpecial');
+            break;
+          case 'healthPack':
+            audioManager.playSound('healthPack');
+            break;
+          default:
+            audioManager.playSound('powerup');
+        }
+        
+        // Apply powerup effect
+        const { gameState: updatedState, activeEffects: updatedEffects } = 
+          applyPowerup(powerup, currentState, activeEffectsRef.current);
+        
+        // Update game state
+        setGameState(prev => ({
+          ...updatedState,
+          objects: prev.objects.filter(o => o.id !== powerup.id)
+        }));
+        
+        // Update active effects
+        setActiveEffects(updatedEffects);
+        break;
+      }
+    }
     
     // Process objects and collisions
     const { updatedObjects, obeliskDamage, scoreIncrease } = processGameObjects(
@@ -414,18 +563,31 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       difficultyMultiplier.current
     );
     
+    // Play hit sound if obelisk took damage
+    if (obeliskDamage > 0) {
+      audioManager.playSound('hit');
+    }
+    
+    // Apply shield effect to reduce obelisk damage if active
+    const finalObeliskDamage = activeEffectsRef.current.shield?.active 
+      ? obeliskDamage * 0.2 // 80% damage reduction with shield
+      : obeliskDamage;
+    
     // Update game state
     setGameState(prev => ({
       ...prev,
       player: currentState.player,
       objects: updatedObjects,
-      obeliskHealth: Math.max(0, prev.obeliskHealth - obeliskDamage),
+      obeliskHealth: Math.max(0, prev.obeliskHealth - finalObeliskDamage),
       score: prev.score + scoreIncrease + (deltaTime * 5), // Passive score increase for survival
     }));
     
     // If all enemies are cleared from a wave, give a small health bonus
-    const enemies = updatedObjects.filter(obj => obj.type === 'enemy');
-    if (enemies.length === 0 && now - lastEnemySpawnTime.current > 3000) {
+    const remainingEnemies = updatedObjects.filter(obj => obj.type === 'enemy');
+    if (remainingEnemies.length === 0 && now - lastEnemySpawnTime.current > 3000) {
+      // Play wave start sound for new wave
+      audioManager.playSound('waveStart');
+      
       // Spawn a new wave of enemies
       const waveEnemies = Math.min(3 + Math.floor(waveNumber.current / 2), 10);
       spawnEnemies(
@@ -433,7 +595,7 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
         canvas.height, 
         waveEnemies, 
         difficultyMultiplier.current,
-        currentState.level, // Pass current level 
+        currentState.level,
         (enemy: GameObject) => {
           setGameState(prev => ({
             ...prev,
@@ -525,6 +687,9 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   const handleRestart = () => {
     if (!canvasRef.current) return;
     
+    // Play wave start sound
+    audioManager.playSound('waveStart');
+    
     // IMPORTANT: Cancel the current animation frame before starting a new one
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -542,6 +707,9 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       clearInterval(shootingIntervalRef.current);
       shootingIntervalRef.current = null;
     }
+    
+    // Reset active effects
+    setActiveEffects({});
     
     setGameState({
       player: {
@@ -587,6 +755,9 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   
   // Handle return to menu button click
   const handleMenu = () => {
+    // Stop music when leaving game
+    audioManager.stopMusic();
+    
     // Clean up any running processes before navigating away
     if (requestRef.current) {
       cancelAnimationFrame(requestRef.current);
@@ -612,6 +783,39 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
           className="w-full h-full"
           style={{ touchAction: 'none' }}
         />
+      </div>
+      
+      {/* Active powerup indicators */}
+      <div className="absolute top-2 left-2 flex flex-col gap-2">
+        {activeEffects.shield?.active && (
+          <div className="bg-[#38BDF880] backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center">
+            <span className="mr-2">🛡️</span>
+            <span>Shield</span>
+            <span className="ml-2 text-xs">
+              {Math.max(0, Math.ceil((activeEffects.shield.endTime - Date.now()) / 1000))}s
+            </span>
+          </div>
+        )}
+        
+        {activeEffects.rapidFire?.active && (
+          <div className="bg-[#4ADE8080] backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center">
+            <span className="mr-2">🔥</span>
+            <span>Rapid Fire</span>
+            <span className="ml-2 text-xs">
+              {Math.max(0, Math.ceil((activeEffects.rapidFire.endTime - Date.now()) / 1000))}s
+            </span>
+          </div>
+        )}
+        
+        {activeEffects.infiniteSpecial?.active && (
+          <div className="bg-[#A78BFA80] backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center">
+            <span className="mr-2">⚡</span>
+            <span>Infinite Special</span>
+            <span className="ml-2 text-xs">
+              {Math.max(0, Math.ceil((activeEffects.infiniteSpecial.endTime - Date.now()) / 1000))}s
+            </span>
+          </div>
+        )}
       </div>
       
       {/* Game over UI overlay */}
@@ -653,6 +857,25 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
           <div>Wave: {waveNumber.current}</div>
         </div>
       )}
+      
+      {/* Audio controls */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-2">
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          value={volume}
+          onChange={(e) => setVolume(parseFloat(e.target.value))}
+          className="w-24"
+        />
+        <button
+          onClick={() => setIsMuted(!isMuted)}
+          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+        >
+          {isMuted ? '🔇' : '🔊'}
+        </button>
+      </div>
     </div>
   );
 };
