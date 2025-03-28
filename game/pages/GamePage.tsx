@@ -20,12 +20,21 @@ import {
   powerupDurations
 } from '../game/powerups';
 import { audioManager } from '../audio/audioManager';
+import { FPSCounter } from '../components/FPSCounter';
 
-export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficulty?: number }) => {
+type DifficultyLevel = 'easy' | 'medium' | 'hard';
+
+interface GameOptions {
+  showFPS: boolean;
+  difficulty: DifficultyLevel;
+}
+
+export const GamePage = ({ postId }: { postId: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef<GameState | null>(null);
   const animationFrameRef = useRef<number>(0);
   const shootingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const difficultyMultiplier = useRef<number>(1.5); // Default to medium difficulty
   const setPage = useSetPage();
   const [gameState, setGameState] = useState<GameState>({
     player: {
@@ -62,7 +71,6 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
   // Game loop using requestAnimationFrame
   const lastTimeRef = useRef<number>(0);
   const requestRef = useRef<number>();
-  const difficultyMultiplier = useRef<number>(Math.min(Math.max(difficulty, 1), 10));
   
   // Enemy spawning timers
   const lastEnemySpawnTime = useRef<number>(0);
@@ -718,6 +726,14 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     
     // Reset active effects
     setActiveEffects({});
+
+    // Set difficulty based on current options
+    const difficultyValues: Record<DifficultyLevel, number> = {
+      easy: 1,
+      medium: 1.5,
+      hard: 2
+    };
+    difficultyMultiplier.current = difficultyValues[gameOptions.difficulty];
     
     setGameState({
       player: {
@@ -748,9 +764,6 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     lastEnemySpawnTime.current = 0;
     enemySpawnRate.current = 2000;
     
-    // Also reset difficulty multiplier to initial value
-    difficultyMultiplier.current = Math.min(Math.max(difficulty, 1), 10);
-    
     // Add a small delay before starting the game loop again
     setTimeout(() => {
       // Start the first wave again
@@ -779,10 +792,68 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
     setPage('home');
   };
   
+  const [gameOptions, setGameOptions] = useState<GameOptions>({
+    showFPS: false,
+    difficulty: 'medium'
+  });
+
+  // Load game options
+  useEffect(() => {
+    try {
+      const savedOptions = localStorage.getItem('gameOptions');
+      if (savedOptions) {
+        const options = JSON.parse(savedOptions) as Partial<GameOptions>;
+        setGameOptions({
+          showFPS: options.showFPS || false,
+          difficulty: (options.difficulty as DifficultyLevel) || 'medium'
+        });
+
+        // Set initial difficulty
+        const difficultyValues: Record<DifficultyLevel, number> = {
+          easy: 1,
+          medium: 1.5,
+          hard: 2
+        };
+        difficultyMultiplier.current = difficultyValues[options.difficulty as DifficultyLevel || 'medium'];
+      }
+    } catch (error) {
+      console.error('Error loading game options:', error);
+    }
+  }, []);
+
+  // Update difficulty when options change
+  useEffect(() => {
+    const difficultyValues: Record<DifficultyLevel, number> = {
+      easy: 1,
+      medium: 1.5,
+      hard: 2
+    };
+    difficultyMultiplier.current = difficultyValues[gameOptions.difficulty];
+  }, [gameOptions.difficulty]);
+
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-[#000022]">
       {/* Animated stars background */}
       <StarBackground />
+      
+      {/* Game info display */}
+      <div className="absolute top-4 left-4 flex flex-col gap-2 z-[100]">
+        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
+          Score: {Math.floor(gameState.score)}
+        </div>
+        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
+          Wave: {gameState.level}
+        </div>
+        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
+          Special Ammo: {gameState.player.specialAmmo}
+        </div>
+        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
+          Difficulty: {gameOptions.difficulty}
+        </div>
+      </div>
+
+      {/* Show FPS counter if enabled */}
+      {gameOptions.showFPS && <FPSCounter />}
       
       {/* Game canvas */}
       <div className="relative w-full h-full">
@@ -794,7 +865,7 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       </div>
       
       {/* Game controls */}
-      <div className="absolute bottom-4 left-4 flex gap-2">
+      <div className="absolute bottom-4 left-4 flex gap-2 z-[100]">
         <button
           onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
           className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
@@ -844,7 +915,7 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
       
       {/* Game over UI overlay */}
       {gameState.gameOver && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-[200]">
           <div className="bg-[#00002280] backdrop-blur-md p-8 rounded-xl flex flex-col items-center">
             <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">GAME OVER</h1>
             <p className="text-[#8ca0bd] text-xl mb-6">
@@ -864,26 +935,8 @@ export const GamePage = ({ postId, difficulty = 1 }: { postId: string; difficult
         </div>
       )}
       
-      {/* Wave notification overlay (optional - could implement this) */}
-      {/* {showWaveNotification && (
-        <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center z-10 transition-opacity duration-1000">
-          <h2 className="text-4xl text-white font-bold">Wave {gameState.level}</h2>
-          <p className="text-xl text-[#8ca0bd]">Enemies are getting stronger!</p>
-        </div>
-      )} */}
-      
-      {/* Debug info overlay (hidden in production) */}
-      {false && (
-        <div className="absolute top-2 right-2 bg-black bg-opacity-50 p-2 rounded text-xs text-white">
-          <div>FPS: {currentFps.current}</div>
-          <div>Objects: {gameState.objects.length}</div>
-          <div>Difficulty: {difficultyMultiplier.current.toFixed(1)}</div>
-          <div>Wave: {waveNumber.current}</div>
-        </div>
-      )}
-      
       {/* Audio controls */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-2">
+      <div className="absolute bottom-4 right-4 flex items-center gap-2 z-[100]">
         <input
           type="range"
           min="0"

@@ -9,20 +9,12 @@ import { usePage } from './hooks/usePage';
 import { sendToDevvit } from './utils';
 import { useDevvitListener } from './hooks/useDevvitListener';
 
-// Create components for pages that don't exist yet
-const ComingSoonPage = ({ page }: { page: string }) => (
-  <div className="flex h-full w-full items-center justify-center flex-col bg-[#000022] text-white">
-    <h2 className="text-2xl font-bold text-[#55ff55] mb-4">Coming Soon: {page}</h2>
-    <p className="text-[#8ca0bd]">This feature is currently under development</p>
-  </div>
-);
-
 const getPage = (page: Page, { postId, difficulty }: { postId: string, difficulty: number }) => {
   switch (page) {
     case 'home':
       return <HomePage postId={postId} />;
     case 'game':
-      return <GamePage postId={postId} difficulty={difficulty} />;
+      return <GamePage postId={postId} />;
     case 'shop':
       return <ShopPage />;
     case 'options':
