@@ -729,9 +729,9 @@ export const GamePage = ({ postId }: { postId: string }) => {
 
     // Set difficulty based on current options
     const difficultyValues: Record<DifficultyLevel, number> = {
-      easy: 1,
-      medium: 1.5,
-      hard: 2
+      easy: 0.7,    // Easier than before
+      medium: 1.5,  // Same as before
+      hard: 2.5     // Harder than before
     };
     difficultyMultiplier.current = difficultyValues[gameOptions.difficulty];
     
@@ -810,9 +810,9 @@ export const GamePage = ({ postId }: { postId: string }) => {
 
         // Set initial difficulty
         const difficultyValues: Record<DifficultyLevel, number> = {
-          easy: 1,
-          medium: 1.5,
-          hard: 2
+          easy: 0.7,    // Easier than before
+          medium: 1.5,  // Same as before
+          hard: 2.5     // Harder than before
         };
         difficultyMultiplier.current = difficultyValues[options.difficulty as DifficultyLevel || 'medium'];
       }
@@ -824,9 +824,9 @@ export const GamePage = ({ postId }: { postId: string }) => {
   // Update difficulty when options change
   useEffect(() => {
     const difficultyValues: Record<DifficultyLevel, number> = {
-      easy: 1,
-      medium: 1.5,
-      hard: 2
+      easy: 0.7,    // Easier than before
+      medium: 1.5,  // Same as before
+      hard: 2.5     // Harder than before
     };
     difficultyMultiplier.current = difficultyValues[gameOptions.difficulty];
   }, [gameOptions.difficulty]);

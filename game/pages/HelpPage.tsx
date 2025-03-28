@@ -18,43 +18,65 @@ const helpSections = [
       "🖱️ Move: Control your ship with mouse movement",
       "🔫 Shoot: Left-click to fire regular bullets",
       "💥 Special Attack: Right-click to use special weapons (limited ammo)",
+      "⏸️ Pause: Click the pause button or press ESC",
       "🎯 Strategy: Stay close to the obelisk but keep moving to avoid enemy fire"
+    ]
+  },
+  {
+    title: "Enemy Types",
+    content: [
+      "🔴 Basic: Standard enemy with balanced stats",
+      "⚡ Fast: Smaller and quicker, but less health",
+      "🛡️ Tank: Large and tough, but moves slowly",
+      "🎯 Hunter: Actively pursues your ship",
+      "💣 Bomber: Explodes on death, damaging nearby enemies",
+      "🔫 Sniper: Long-range attacks with high precision",
+      "✨ Teleporter: Can teleport around the map",
+      "🛡️ Shielded: Protected by a damage-reducing shield"
+    ]
+  },
+  {
+    title: "Health & Survival",
+    content: [
+      "❤️ Obelisk Health: Starts at 100%, game over if it reaches 0%",
+      "💚 Wave Bonus: Gain 5% health after completing a wave",
+      "🌟 Clear Bonus: Extra health when clearing all enemies",
+      "🛡️ Shield Power-up: Reduces damage taken by 80%",
+      "💊 Health Pack: Restores 30% of obelisk health",
+      "⚔️ Enemy Damage: Varies by enemy type and difficulty"
     ]
   },
   {
     title: "Power-ups",
     content: [
-      "🛡️ Shield: Provides temporary invincibility",
+      "🛡️ Shield: Reduces incoming damage by 80%",
       "🔥 Rapid Fire: Increases your firing rate",
       "⚡ Infinite Special: Unlimited special attacks for a short time",
-      "💊 Health Pack: Restores 30% of obelisk health"
-    ]
-  },
-  {
-    title: "Shop & Upgrades",
-    content: [
-      "💰 Earn coins by destroying enemies and surviving waves",
-      "🏪 Visit the shop to purchase power-ups and extra lives",
-      "💎 Need more coins? Use the Get More Coins option in the shop",
-      "📈 Strategic purchases can help you survive tougher waves"
+      "💊 Health Pack: Restores 30% of obelisk health",
+      "💫 Special Ammo: Occasionally replenishes over time"
     ]
   },
   {
     title: "Waves & Difficulty",
     content: [
-      "🌊 Each wave brings stronger and more numerous enemies",
-      "⚖️ Game difficulty scales with thread downvotes",
-      "🎯 Special enemies appear in later waves",
-      "💪 Survive longer to earn higher scores and more rewards"
+      "🌊 Each wave lasts 30 seconds + 5 seconds per wave level",
+      "📈 Enemy count increases: 2 base + 1 per 2 waves (max +8)",
+      "⚖️ Three difficulty levels affect enemy stats:",
+      "   Easy (0.7x): Slower, weaker enemies",
+      "   Medium (1.5x): Balanced challenge",
+      "   Hard (2.5x): Faster, stronger enemies",
+      "🎯 Advanced enemy types appear in later waves"
     ]
   },
   {
-    title: "Tips & Tricks",
+    title: "Scoring & Strategy",
     content: [
-      "🎯 Use special attacks wisely - they're powerful but limited",
-      "🛡️ Save power-ups for when you really need them",
-      "💫 Keep moving to avoid enemy fire",
-      "🏰 Don't stray too far from the obelisk - it needs your protection!"
+      "💯 Score points by destroying enemies and surviving",
+      "🎯 Special enemies give bonus points when destroyed",
+      "🛡️ Use power-ups strategically for tough waves",
+      "💫 Keep moving to avoid damage, but stay near the obelisk",
+      "⚡ Save special attacks for emergency situations",
+      "🏆 High scores are saved and displayed on the main menu"
     ]
   }
 ];
