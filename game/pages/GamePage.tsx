@@ -140,6 +140,10 @@ export const GamePage = ({ postId }: { postId: string }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
+    // Start game music - ensure we're using the right music track
+    console.log("Starting game music");
+    audioManager.playGameMusic();
+    
     // Set canvas dimensions to match container
     const resizeCanvas = () => {
       if (canvas.parentElement) {
@@ -247,6 +251,9 @@ export const GamePage = ({ postId }: { postId: string }) => {
         clearInterval(shootingIntervalRef.current);
         shootingIntervalRef.current = null;
       }
+      
+      // Stop game music when component unmounts
+      audioManager.stopMusic();
     };
   }, []);
   
@@ -419,16 +426,20 @@ export const GamePage = ({ postId }: { postId: string }) => {
   }, [gameState.isPaused, gameState.gameOver]);
   
   // Add audio state
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [isSoundMuted, setIsSoundMuted] = useState(false);
+  const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const [soundVolume, setSoundVolume] = useState(0.5);
+  const [musicVolume, setMusicVolume] = useState(0.5);
 
   // Initialize audio
   useEffect(() => {
-    // Set initial volume
-    audioManager.setVolume(volume);
+    // Set initial volumes
+    audioManager.setSoundVolume(soundVolume);
+    audioManager.setMusicVolume(musicVolume);
     
-    // Start background music
-    audioManager.playMusic();
+    // Start game music - ensure correct music is playing
+    console.log("Initializing game music");
+    audioManager.playGameMusic();
 
     // Cleanup on unmount
     return () => {
@@ -438,22 +449,29 @@ export const GamePage = ({ postId }: { postId: string }) => {
 
   // Handle volume changes
   useEffect(() => {
-    audioManager.setVolume(volume);
-  }, [volume]);
+    audioManager.setSoundVolume(soundVolume);
+  }, [soundVolume]);
+
+  useEffect(() => {
+    audioManager.setMusicVolume(musicVolume);
+  }, [musicVolume]);
 
   // Handle mute changes
   useEffect(() => {
-    audioManager.setMute(isMuted);
-  }, [isMuted]);
+    audioManager.setSoundMute(isSoundMuted);
+  }, [isSoundMuted]);
 
-  // Modify handleFireBullet to play sound
+  useEffect(() => {
+    audioManager.setMusicMute(isMusicMuted);
+  }, [isMusicMuted]);
+
+  // Modify handleFireBullet to include sound
   const handleFireBullet = (type: 'regular' | 'special') => {
     if (!gameStateRef.current) return;
     
     // Play appropriate sound
     audioManager.playSound(type === 'regular' ? 'shoot' : 'specialShoot');
     
-    // Check if we can use special without consuming ammo
     const hasInfiniteSpecial = activeEffectsRef.current.infiniteSpecial?.active || false;
     
     const { newBullet, updatedPlayer } = fireBullet(
@@ -464,7 +482,6 @@ export const GamePage = ({ postId }: { postId: string }) => {
     
     if (!newBullet) return;
     
-    // If we have infinite special, don't reduce ammo
     const finalPlayer = type === 'special' && hasInfiniteSpecial ? {
       ...updatedPlayer,
       specialAmmo: gameStateRef.current.player.specialAmmo
@@ -525,7 +542,6 @@ export const GamePage = ({ postId }: { postId: string }) => {
     if (now - waveStartTime.current > waveTime) {
       // Play wave start sound
       audioManager.playSound('waveStart');
-      // Start next wave
       startWave(waveNumber.current + 1);
     }
     
@@ -538,24 +554,6 @@ export const GamePage = ({ postId }: { postId: string }) => {
       const collisionRadiusSquared = Math.pow(powerup.size + currentState.player.size, 2);
       
       if (distanceSquared < collisionRadiusSquared) {
-        // Play appropriate powerup sound based on type
-        switch (powerup.subType) {
-          case 'shield':
-            audioManager.playSound('shield');
-            break;
-          case 'rapidFire':
-            audioManager.playSound('rapidFire');
-            break;
-          case 'infiniteSpecial':
-            audioManager.playSound('infiniteSpecial');
-            break;
-          case 'healthPack':
-            audioManager.playSound('healthPack');
-            break;
-          default:
-            audioManager.playSound('powerup');
-        }
-        
         // Apply powerup effect
         const { gameState: updatedState, activeEffects: updatedEffects } = 
           applyPowerup(powerup, currentState, activeEffectsRef.current);
@@ -703,20 +701,21 @@ export const GamePage = ({ postId }: { postId: string }) => {
   const handleRestart = () => {
     if (!canvasRef.current) return;
     
-    // Play wave start sound
-    audioManager.playSound('waveStart');
-    
     // IMPORTANT: Cancel the current animation frame before starting a new one
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = 0;
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+      requestRef.current = undefined;
     }
     
     // Reset game timers in gameRenderer.tsx
     resetGameTimers();
     
     // Reset ALL local timing references
-    lastTimeRef.current = 0; // This is crucial
+    lastTimeRef.current = 0;
+    lastEnemySpawnTime.current = 0;
+    waveStartTime.current = Date.now();
+    waveNumber.current = 1;
+    enemySpawnRate.current = 2000;
     
     // Reset ANY intervals that might be running
     if (shootingIntervalRef.current) {
@@ -729,12 +728,13 @@ export const GamePage = ({ postId }: { postId: string }) => {
 
     // Set difficulty based on current options
     const difficultyValues: Record<DifficultyLevel, number> = {
-      easy: 0.7,    // Easier than before
-      medium: 1.5,  // Same as before
-      hard: 2.5     // Harder than before
+      easy: 0.7,
+      medium: 1.5,
+      hard: 2.5
     };
     difficultyMultiplier.current = difficultyValues[gameOptions.difficulty];
     
+    // Reset game state
     setGameState({
       player: {
         x: canvasRef.current.width / 2,
@@ -758,16 +758,14 @@ export const GamePage = ({ postId }: { postId: string }) => {
       isRightMouseDown: false
     });
     
-    // Reset wave number and timing
-    waveNumber.current = 1;
-    waveStartTime.current = Date.now();
-    lastEnemySpawnTime.current = 0;
-    enemySpawnRate.current = 2000;
-    
     // Add a small delay before starting the game loop again
     setTimeout(() => {
-      // Start the first wave again
+      // Start the first wave
       startWave(1);
+      
+      // Restart game music - make sure to use game music
+      console.log("Restarting game music after restart");
+      audioManager.playGameMusic();
       
       // Restart game loop
       startGameLoop();
@@ -776,12 +774,14 @@ export const GamePage = ({ postId }: { postId: string }) => {
   
   // Handle return to menu button click
   const handleMenu = () => {
-    // Stop music when leaving game
-    audioManager.stopMusic();
+    // Stop game music and play menu music
+    console.log("Switching to menu music");
+    audioManager.playMenuMusic();
     
     // Clean up any running processes before navigating away
     if (requestRef.current) {
       cancelAnimationFrame(requestRef.current);
+      requestRef.current = undefined;
     }
     
     if (shootingIntervalRef.current) {
@@ -884,22 +884,46 @@ export const GamePage = ({ postId }: { postId: string }) => {
       </div>
       
       {/* Audio controls - more compact */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-2 z-[100] scale-90">
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.1"
-          value={volume}
-          onChange={(e) => setVolume(parseFloat(e.target.value))}
-          className="w-20"
-        />
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
-        >
-          {isMuted ? '🔇' : '🔊'}
-        </button>
+      <div className="absolute bottom-4 right-4 flex items-center gap-4 z-[100] scale-90">
+        {/* Sound Effects Controls */}
+        <div className="flex items-center gap-2">
+          <span className="text-white text-sm">SFX</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={soundVolume}
+            onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+            className="w-20"
+          />
+          <button
+            onClick={() => setIsSoundMuted(!isSoundMuted)}
+            className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+          >
+            {isSoundMuted ? '🔇' : '🔊'}
+          </button>
+        </div>
+
+        {/* Music Controls */}
+        <div className="flex items-center gap-2">
+          <span className="text-white text-sm">Music</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={musicVolume}
+            onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
+            className="w-20"
+          />
+          <button
+            onClick={() => setIsMusicMuted(!isMusicMuted)}
+            className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+          >
+            {isMusicMuted ? '🎵🚫' : '🎵'}
+          </button>
+        </div>
       </div>
 
       {/* Game over UI overlay */}

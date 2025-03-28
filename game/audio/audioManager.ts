@@ -3,8 +3,11 @@ class AudioManager {
   private static instance: AudioManager;
   private sounds: { [key: string]: HTMLAudioElement } = {};
   private music: HTMLAudioElement | null = null;
-  private isMuted: boolean = false;
-  private volume: number = 0.5;
+  private gameMusic: HTMLAudioElement | null = null;
+  private isSoundMuted: boolean = false;
+  private _isMusicMuted: boolean = false;
+  private soundVolume: number = 0.2;
+  private musicVolume: number = 0.4;
 
   private constructor() {
     // Initialize sound effects
@@ -12,26 +15,28 @@ class AudioManager {
       shoot: new Audio('/sounds/shoot.mp3'),
       specialShoot: new Audio('/sounds/special-shoot.mp3'),
       explosion: new Audio('/sounds/explosion.mp3'),
-      powerup: new Audio('/sounds/powerup.mp3'),
+      hit: new Audio('/sounds/hit.mp3'),
       gameOver: new Audio('/sounds/game-over.mp3'),
       waveStart: new Audio('/sounds/wave-start.mp3'),
-      hit: new Audio('/sounds/hit.mp3'),
-      shield: new Audio('/sounds/shield.mp3'),
-      rapidFire: new Audio('/sounds/rapid-fire.mp3'),
-      infiniteSpecial: new Audio('/sounds/infinite-special.mp3'),
-      healthPack: new Audio('/sounds/health-pack.mp3')
     };
 
     // Initialize background music
     this.music = new Audio('/sounds/background-music.mp3');
+    this.gameMusic = new Audio('/sounds/game-music.mp3');
+
+    // Set up music looping
     if (this.music) {
       this.music.loop = true;
-      this.music.volume = this.volume * 0.5; // Music at half volume
+      this.music.volume = this.musicVolume;
+    }
+    if (this.gameMusic) {
+      this.gameMusic.loop = true;
+      this.gameMusic.volume = this.musicVolume;
     }
 
-    // Set volume for all sounds
+    // Set up sound effect volumes
     Object.values(this.sounds).forEach(sound => {
-      sound.volume = this.volume;
+      sound.volume = this.soundVolume;
     });
   }
 
@@ -42,18 +47,48 @@ class AudioManager {
     return AudioManager.instance;
   }
 
-  public playSound(soundName: keyof typeof this.sounds): void {
-    if (this.isMuted) return;
+  public playSound(soundName: string): void {
+    if (this.isSoundMuted) return;
+
     const sound = this.sounds[soundName];
     if (sound) {
-      sound.currentTime = 0; // Reset to start
-      sound.play().catch(error => console.log('Error playing sound:', error));
+      // Create a clone for overlapping sounds
+      const clone = sound.cloneNode() as HTMLAudioElement;
+      clone.volume = this.soundVolume;
+      clone.play().catch(e => console.error('Error playing sound:', e));
     }
   }
 
-  public playMusic(): void {
-    if (this.isMuted || !this.music) return;
-    this.music.play().catch(error => console.log('Error playing music:', error));
+  public playMenuMusic(): void {
+    if (this._isMusicMuted || !this.music) return;
+    
+    // Stop game music if playing
+    if (this.gameMusic) {
+      this.gameMusic.pause();
+      this.gameMusic.currentTime = 0;
+    }
+    
+    // Only start the music if it's not already playing
+    if (this.music.paused) {
+      this.music.currentTime = 0; // Start from the beginning
+      this.music.play().catch(e => console.error('Error playing menu music:', e));
+    }
+  }
+
+  public playGameMusic(): void {
+    if (this._isMusicMuted || !this.gameMusic) return;
+    
+    // Stop menu music if playing
+    if (this.music) {
+      this.music.pause();
+      this.music.currentTime = 0;
+    }
+    
+    // Only start the music if it's not already playing
+    if (this.gameMusic.paused) {
+      this.gameMusic.currentTime = 0; // Start from the beginning
+      this.gameMusic.play().catch(e => console.error('Error playing game music:', e));
+    }
   }
 
   public stopMusic(): void {
@@ -61,38 +96,68 @@ class AudioManager {
       this.music.pause();
       this.music.currentTime = 0;
     }
+    if (this.gameMusic) {
+      this.gameMusic.pause();
+      this.gameMusic.currentTime = 0;
+    }
   }
 
-  public setMute(muted: boolean): void {
-    this.isMuted = muted;
+  public setSoundMute(muted: boolean): void {
+    this.isSoundMuted = muted;
+  }
+
+  public setMusicMute(muted: boolean): void {
+    this._isMusicMuted = muted;
+    
     if (muted) {
       this.stopMusic();
     } else {
-      this.playMusic();
+      // Resume the appropriate music based on current page
+      const currentPath = window.location.pathname;
+      if (currentPath.includes('game')) {
+        this.playGameMusic();
+      } else {
+        this.playMenuMusic();
+      }
     }
   }
 
-  public setVolume(volume: number): void {
-    this.volume = Math.max(0, Math.min(1, volume));
+  public setSoundVolume(volume: number): void {
+    this.soundVolume = volume;
     
-    // Update music volume
-    if (this.music) {
-      this.music.volume = this.volume * 0.5;
-    }
-
-    // Update sound effects volume
+    // Update sound effect volumes
     Object.values(this.sounds).forEach(sound => {
-      sound.volume = this.volume;
+      sound.volume = volume;
     });
   }
 
-  public isSoundMuted(): boolean {
-    return this.isMuted;
+  public setMusicVolume(volume: number): void {
+    this.musicVolume = volume;
+    
+    // Update music volume
+    if (this.music) {
+      this.music.volume = volume;
+    }
+    if (this.gameMusic) {
+      this.gameMusic.volume = volume;
+    }
   }
 
-  public getVolume(): number {
-    return this.volume;
+  public isSoundsMuted(): boolean {
+    return this.isSoundMuted;
+  }
+
+  public isMusicMuted(): boolean {
+    return this._isMusicMuted;
+  }
+
+  public getSoundVolume(): number {
+    return this.soundVolume;
+  }
+
+  public getMusicVolume(): number {
+    return this.musicVolume;
   }
 }
 
-export const audioManager = AudioManager.getInstance(); 
+export const audioManager = AudioManager.getInstance();

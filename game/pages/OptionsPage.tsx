@@ -30,16 +30,23 @@ export const OptionsPage = () => {
         
         // Apply audio settings immediately
         if (audioManager) {
-          audioManager.setMute(!parsedOptions.soundEnabled);
+          audioManager.setSoundMute(!parsedOptions.soundEnabled);
+          audioManager.setMusicMute(!parsedOptions.musicEnabled);
+          
           if (parsedOptions.musicEnabled) {
-            audioManager.playMusic();
+            audioManager.playMenuMusic();
           } else {
             audioManager.stopMusic();
           }
         }
+      } else {
+        // If no saved options, make sure menu music is playing
+        audioManager.playMenuMusic();
       }
     } catch (error) {
       console.error('Error loading options:', error);
+      // In case of error, make sure menu music is playing
+      audioManager.playMenuMusic();
     }
   }, []);
 
@@ -50,9 +57,11 @@ export const OptionsPage = () => {
       
       // Apply audio settings
       if (audioManager) {
-        audioManager.setMute(!options.soundEnabled);
+        audioManager.setSoundMute(!options.soundEnabled);
+        audioManager.setMusicMute(!options.musicEnabled);
+        
         if (options.musicEnabled) {
-          audioManager.playMusic();
+          audioManager.playMenuMusic();
         } else {
           audioManager.stopMusic();
         }
@@ -167,4 +176,4 @@ export const OptionsPage = () => {
       </div>
     </div>
   );
-}; 
+};

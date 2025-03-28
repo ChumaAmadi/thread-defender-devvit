@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StarBackground } from '../components/StarBackground';
 import { SpaceButton } from '../components/SpaceButton';
 import { useSetPage } from '../hooks/usePage';
+import { audioManager } from '../audio/audioManager';
 
 // Help sections data
 const helpSections = [
@@ -84,6 +85,11 @@ const helpSections = [
 export default function HelpPage() {
   const setPage = useSetPage();
 
+  // Play menu music when the help page loads
+  useEffect(() => {
+    audioManager.playMenuMusic();
+  }, []);
+
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-start overflow-y-auto p-4 bg-[#000022]">
       {/* Animated stars background */}
@@ -124,4 +130,4 @@ export default function HelpPage() {
       </div>
     </div>
   );
-} 
+}

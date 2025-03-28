@@ -5,6 +5,7 @@ import { useSetPage } from '../hooks/usePage';
 import { StarBackground } from '../components/StarBackground';
 import { SpaceButton } from '../components/SpaceButton';
 import { sendToDevvit } from '../utils';
+import { audioManager } from '../audio/audioManager';
 
 // News items for the updates section
 const newsItems = [
@@ -47,6 +48,11 @@ export const HomePage = ({ postId }: { postId: string }) => {
     } catch (error) {
       console.error('Error loading game options:', error);
     }
+
+    // Play menu music when component mounts
+    audioManager.playMenuMusic();
+    
+    console.log("Home page loaded - playing menu music");
   }, []);
 
   // Simulate ship movement in preview

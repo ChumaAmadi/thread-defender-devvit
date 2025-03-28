@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StarBackground } from '../components/StarBackground';
 import { SpaceButton } from '../components/SpaceButton';
 import { useSetPage } from '../hooks/usePage';
 import { PowerupType, powerupDurations } from '../game/powerups';
+import { audioManager } from '../audio/audioManager';
 
 // Shop item interface
 interface ShopItem {
@@ -68,6 +69,11 @@ const ShopPage: React.FC = () => {
   const setPage = useSetPage();
   const [coins, setCoins] = React.useState(5000); // Starting coins
   const [selectedItem, setSelectedItem] = React.useState<ShopItem | null>(null);
+
+  // Play menu music when the shop page loads
+  useEffect(() => {
+    audioManager.playMenuMusic();
+  }, []);
 
   const handlePurchase = (item: ShopItem) => {
     if (coins >= item.price) {
@@ -154,4 +160,4 @@ const ShopPage: React.FC = () => {
   );
 };
 
-export default ShopPage; 
+export default ShopPage;
