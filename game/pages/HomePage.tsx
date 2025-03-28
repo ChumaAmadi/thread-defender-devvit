@@ -110,6 +110,19 @@ export const HomePage = ({ postId }: { postId: string }) => {
     return diff.charAt(0).toUpperCase() + diff.slice(1);
   };
 
+  // Handle game start - switch music before navigating
+  const handleStartGame = () => {
+    // Stop menu music and start game music
+    console.log("Start Game clicked - switching to game music");
+    audioManager.stopMusic(); // Stop menu music completely
+    setTimeout(() => {
+      audioManager.playGameMusic(); // Start game music with a short delay
+    }, 100);
+    
+    // Navigate to game page
+    setPage('game');
+  };
+
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-[#000022]">
       {/* Animated stars */}
@@ -153,7 +166,7 @@ export const HomePage = ({ postId }: { postId: string }) => {
         {/* Menu buttons */}
         <div className="flex flex-col gap-4 w-full max-w-xs">
           <SpaceButton
-            onClick={() => setPage('game')}
+            onClick={handleStartGame} // Use the new handler function
             onMouseEnter={() => setIsHovering('game')}
             onMouseLeave={() => setIsHovering('')}
             className="transform transition-transform hover:scale-105"

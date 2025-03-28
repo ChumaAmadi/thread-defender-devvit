@@ -8,6 +8,7 @@ class AudioManager {
   private _isMusicMuted: boolean = false;
   private soundVolume: number = 0.2;
   private musicVolume: number = 0.4;
+  private lastMusicPlayed: 'menu' | 'game' | 'none' = 'none';
 
   private constructor() {
     // Initialize sound effects
@@ -24,6 +25,10 @@ class AudioManager {
     this.music = new Audio('/sounds/background-music.mp3');
     this.gameMusic = new Audio('/sounds/game-music.mp3');
 
+    // Debug information - log the music files
+    console.log("[AudioManager] Menu music source:", this.music.src);
+    console.log("[AudioManager] Game music source:", this.gameMusic.src);
+
     // Set up music looping
     if (this.music) {
       this.music.loop = true;
@@ -37,6 +42,27 @@ class AudioManager {
     // Set up sound effect volumes
     Object.values(this.sounds).forEach(sound => {
       sound.volume = this.soundVolume;
+    });
+    
+    // Preload audio files
+    this.preloadAudio();
+  }
+  
+  private preloadAudio(): void {
+    // Preload all audio files to ensure they're ready to play
+    console.log("[AudioManager] Preloading audio files...");
+    
+    // Load music files
+    if (this.music) {
+      this.music.load();
+    }
+    if (this.gameMusic) {
+      this.gameMusic.load();
+    }
+    
+    // Load sound effects
+    Object.values(this.sounds).forEach(sound => {
+      sound.load();
     });
   }
 
@@ -55,12 +81,20 @@ class AudioManager {
       // Create a clone for overlapping sounds
       const clone = sound.cloneNode() as HTMLAudioElement;
       clone.volume = this.soundVolume;
-      clone.play().catch(e => console.error('Error playing sound:', e));
+      clone.play().catch(e => console.error('[AudioManager] Error playing sound:', e));
     }
   }
 
   public playMenuMusic(): void {
     if (this._isMusicMuted || !this.music) return;
+    
+    console.log("[AudioManager] Playing menu music");
+    
+    // Check if menu music is already playing
+    if (this.lastMusicPlayed === 'menu' && !this.music.paused) {
+      console.log("[AudioManager] Menu music already playing");
+      return;
+    }
     
     // Stop game music if playing
     if (this.gameMusic) {
@@ -68,15 +102,31 @@ class AudioManager {
       this.gameMusic.currentTime = 0;
     }
     
-    // Only start the music if it's not already playing
-    if (this.music.paused) {
-      this.music.currentTime = 0; // Start from the beginning
-      this.music.play().catch(e => console.error('Error playing menu music:', e));
+    // Start menu music
+    this.music.currentTime = 0; // Start from the beginning
+    const playPromise = this.music.play();
+    
+    // Handle play promise rejection (if autoplay is blocked)
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        console.log("[AudioManager] Menu music started successfully");
+        this.lastMusicPlayed = 'menu';
+      }).catch(e => {
+        console.error('[AudioManager] Error playing menu music:', e);
+      });
     }
   }
 
   public playGameMusic(): void {
     if (this._isMusicMuted || !this.gameMusic) return;
+    
+    console.log("[AudioManager] Playing game music");
+    
+    // Check if game music is already playing
+    if (this.lastMusicPlayed === 'game' && !this.gameMusic.paused) {
+      console.log("[AudioManager] Game music already playing");
+      return;
+    }
     
     // Stop menu music if playing
     if (this.music) {
@@ -84,14 +134,24 @@ class AudioManager {
       this.music.currentTime = 0;
     }
     
-    // Only start the music if it's not already playing
-    if (this.gameMusic.paused) {
-      this.gameMusic.currentTime = 0; // Start from the beginning
-      this.gameMusic.play().catch(e => console.error('Error playing game music:', e));
+    // Start game music
+    this.gameMusic.currentTime = 0; // Start from the beginning
+    const playPromise = this.gameMusic.play();
+    
+    // Handle play promise rejection (if autoplay is blocked)
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        console.log("[AudioManager] Game music started successfully");
+        this.lastMusicPlayed = 'game';
+      }).catch(e => {
+        console.error('[AudioManager] Error playing game music:', e);
+      });
     }
   }
 
   public stopMusic(): void {
+    console.log("[AudioManager] Stopping all music");
+    
     if (this.music) {
       this.music.pause();
       this.music.currentTime = 0;
@@ -100,6 +160,8 @@ class AudioManager {
       this.gameMusic.pause();
       this.gameMusic.currentTime = 0;
     }
+    
+    this.lastMusicPlayed = 'none';
   }
 
   public setSoundMute(muted: boolean): void {
@@ -112,9 +174,8 @@ class AudioManager {
     if (muted) {
       this.stopMusic();
     } else {
-      // Resume the appropriate music based on current page
-      const currentPath = window.location.pathname;
-      if (currentPath.includes('game')) {
+      // Resume the appropriate music
+      if (this.lastMusicPlayed === 'game') {
         this.playGameMusic();
       } else {
         this.playMenuMusic();
@@ -157,6 +218,10 @@ class AudioManager {
 
   public getMusicVolume(): number {
     return this.musicVolume;
+  }
+  
+  public getCurrentMusic(): string {
+    return this.lastMusicPlayed;
   }
 }
 
