@@ -833,22 +833,25 @@ export const GamePage = ({ postId }: { postId: string }) => {
 
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-[#000022]">
-      {/* Animated stars background */}
       <StarBackground />
       
-      {/* Game info display */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 z-[100]">
-        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
-          Score: {Math.floor(gameState.score)}
-        </div>
-        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
-          Wave: {gameState.level}
-        </div>
-        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
-          Special Ammo: {gameState.player.specialAmmo}
-        </div>
-        <div className="bg-[#00002280] backdrop-blur-sm text-white px-3 py-1 rounded-full">
-          Difficulty: {gameOptions.difficulty}
+      {/* Game info display - more compact with grid layout */}
+      <div className="absolute top-4 left-4 bg-[#00002280] backdrop-blur-sm rounded-lg p-2 z-[100]">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          <div className="text-[#8ca0bd]">Score:</div>
+          <div className="text-white text-right">{Math.floor(gameState.score)}</div>
+          
+          <div className="text-[#8ca0bd]">Wave:</div>
+          <div className="text-white text-right">{gameState.level}</div>
+          
+          <div className="text-[#8ca0bd]">Special Ammo:</div>
+          <div className="text-white text-right">{gameState.player.specialAmmo}</div>
+          
+          <div className="text-[#8ca0bd]">Difficulty:</div>
+          <div className="text-white text-right">{gameOptions.difficulty}</div>
+          
+          <div className="text-[#8ca0bd]">Health:</div>
+          <div className="text-white text-right">{Math.floor(gameState.obeliskHealth)}%</div>
         </div>
       </div>
 
@@ -864,8 +867,8 @@ export const GamePage = ({ postId }: { postId: string }) => {
         />
       </div>
       
-      {/* Game controls */}
-      <div className="absolute bottom-4 left-4 flex gap-2 z-[100]">
+      {/* Game controls - more compact */}
+      <div className="absolute bottom-4 left-4 flex gap-2 z-[100] scale-90">
         <button
           onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
           className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
@@ -880,39 +883,25 @@ export const GamePage = ({ postId }: { postId: string }) => {
         </button>
       </div>
       
-      {/* Active powerup indicators */}
-      <div className="absolute top-2 left-2 flex flex-col gap-2">
-        {activeEffects.shield?.active && (
-          <div className="bg-[#38BDF880] backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center">
-            <span className="mr-2">🛡️</span>
-            <span>Shield</span>
-            <span className="ml-2 text-xs">
-              {Math.max(0, Math.ceil((activeEffects.shield.endTime - Date.now()) / 1000))}s
-            </span>
-          </div>
-        )}
-        
-        {activeEffects.rapidFire?.active && (
-          <div className="bg-[#4ADE8080] backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center">
-            <span className="mr-2">🔥</span>
-            <span>Rapid Fire</span>
-            <span className="ml-2 text-xs">
-              {Math.max(0, Math.ceil((activeEffects.rapidFire.endTime - Date.now()) / 1000))}s
-            </span>
-          </div>
-        )}
-        
-        {activeEffects.infiniteSpecial?.active && (
-          <div className="bg-[#A78BFA80] backdrop-blur-sm text-white px-3 py-1 rounded-full flex items-center">
-            <span className="mr-2">⚡</span>
-            <span>Infinite Special</span>
-            <span className="ml-2 text-xs">
-              {Math.max(0, Math.ceil((activeEffects.infiniteSpecial.endTime - Date.now()) / 1000))}s
-            </span>
-          </div>
-        )}
+      {/* Audio controls - more compact */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-2 z-[100] scale-90">
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          value={volume}
+          onChange={(e) => setVolume(parseFloat(e.target.value))}
+          className="w-20"
+        />
+        <button
+          onClick={() => setIsMuted(!isMuted)}
+          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+        >
+          {isMuted ? '🔇' : '🔊'}
+        </button>
       </div>
-      
+
       {/* Game over UI overlay */}
       {gameState.gameOver && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-[200]">
@@ -934,25 +923,6 @@ export const GamePage = ({ postId }: { postId: string }) => {
           </div>
         </div>
       )}
-      
-      {/* Audio controls */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-2 z-[100]">
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.1"
-          value={volume}
-          onChange={(e) => setVolume(parseFloat(e.target.value))}
-          className="w-24"
-        />
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
-        >
-          {isMuted ? '🔇' : '🔊'}
-        </button>
-      </div>
     </div>
   );
 };

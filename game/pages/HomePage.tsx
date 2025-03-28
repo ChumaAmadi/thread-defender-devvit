@@ -26,16 +26,26 @@ export const HomePage = ({ postId }: { postId: string }) => {
   const setPage = useSetPage();
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
   const [showNews, setShowNews] = useState(true);
-  const [difficulty, setDifficulty] = useState(1);
+  const [gameDifficulty, setGameDifficulty] = useState('medium');
   const [highScore, setHighScore] = useState(0);
   const shipPreviewRef = useRef<HTMLDivElement>(null);
   const [isHovering, setIsHovering] = useState('');
 
-  // Load high score from localStorage
+  // Load high score and difficulty from localStorage
   useEffect(() => {
     const savedHighScore = localStorage.getItem('highScore');
     if (savedHighScore) {
       setHighScore(parseInt(savedHighScore, 10));
+    }
+
+    try {
+      const savedOptions = localStorage.getItem('gameOptions');
+      if (savedOptions) {
+        const options = JSON.parse(savedOptions);
+        setGameDifficulty(options.difficulty || 'medium');
+      }
+    } catch (error) {
+      console.error('Error loading game options:', error);
     }
   }, []);
 
@@ -77,16 +87,21 @@ export const HomePage = ({ postId }: { postId: string }) => {
     }
   }, [postId]);
 
-  const getDifficultyColor = (diff: number) => {
-    if (diff <= 3) return 'text-green-400';
-    if (diff <= 7) return 'text-yellow-400';
-    return 'text-red-400';
+  const getDifficultyColor = (diff: string) => {
+    switch (diff) {
+      case 'easy':
+        return 'text-green-400';
+      case 'medium':
+        return 'text-yellow-400';
+      case 'hard':
+        return 'text-red-400';
+      default:
+        return 'text-yellow-400';
+    }
   };
 
-  const getDifficultyText = (diff: number) => {
-    if (diff <= 3) return 'Easy';
-    if (diff <= 7) return 'Medium';
-    return 'Hard';
+  const formatDifficulty = (diff: string) => {
+    return diff.charAt(0).toUpperCase() + diff.slice(1);
   };
 
   return (
@@ -123,8 +138,8 @@ export const HomePage = ({ postId }: { postId: string }) => {
           </div>
           <div className="bg-[#113355] bg-opacity-30 px-4 py-2 rounded-md border border-[#55ff55] border-opacity-30">
             <p className="text-[#8ca0bd] text-sm">Difficulty</p>
-            <p className={`font-bold ${getDifficultyColor(difficulty)}`}>
-              {getDifficultyText(difficulty)}
+            <p className={`font-bold ${getDifficultyColor(gameDifficulty)}`}>
+              {formatDifficulty(gameDifficulty)}
             </p>
           </div>
         </div>

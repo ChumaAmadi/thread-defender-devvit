@@ -922,31 +922,9 @@ function drawExplosion(
  */
 function drawHUD(
   ctx: CanvasRenderingContext2D, 
-  state: GameState,
+  state: GameState, 
   canvas: HTMLCanvasElement
 ) {
-  // Draw score and level
-  ctx.font = 'bold 16px sans-serif';
-  ctx.fillStyle = 'white';
-  ctx.textAlign = 'left';
-  
-  // Score
-  ctx.fillText(`Score: ${Math.floor(state.score)}`, 20, 30);
-  
-  // Level indicator
-  ctx.fillText(`Wave: ${state.level}`, 20, 60);
-  
-  // Special ammo indicator
-  ctx.fillText(`Special Ammo: ${state.player.specialAmmo}`, 20, 90);
-  
-  // Debug info
-  if (false) { // Set to true for debugging
-    ctx.fillText(`Enemies: ${state.objects.filter(o => o.type === 'enemy').length}`, 20, 120);
-    ctx.fillText(`Total Objects: ${state.objects.length}`, 20, 150);
-    // Add powerup count for debugging
-    ctx.fillText(`Powerups: ${state.objects.filter(o => o.type === 'powerup').length}`, 20, 180);
-  }
-  
   // Instructions (only show for first few seconds)
   if (state.score < 100) {
     ctx.font = '14px sans-serif';
