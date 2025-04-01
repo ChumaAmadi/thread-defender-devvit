@@ -797,6 +797,20 @@ export const GamePage = ({ postId }: { postId: string }) => {
     difficulty: 'medium'
   });
 
+  // Add showInstructions state
+  const [showInstructions, setShowInstructions] = useState(true);
+
+  // Add useEffect for instructions timer
+  useEffect(() => {
+    if (showInstructions) {
+      const timer = setTimeout(() => {
+        setShowInstructions(false);
+      }, 10000); // 10 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showInstructions]);
+
   // Load game options
   useEffect(() => {
     try {
@@ -835,7 +849,7 @@ export const GamePage = ({ postId }: { postId: string }) => {
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-[#000022]">
       <StarBackground />
       
-      {/* Game info display - no changes needed here */}
+      {/* Game info display - Keep this as is */}
       <div className="absolute top-4 left-4 bg-[#00002280] backdrop-blur-sm rounded-lg p-2 z-[100]">
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
           <div className="text-[#8ca0bd]">Score:</div>
@@ -855,8 +869,25 @@ export const GamePage = ({ postId }: { postId: string }) => {
         </div>
       </div>
 
-      {/* Show FPS counter if enabled */}
-      {gameOptions.showFPS && <FPSCounter />}
+      {/* Temporary vertical instructions that disappear */}
+      {showInstructions && (
+        <div className="absolute top-4 left-0 right-0 flex justify-center z-[100] transition-opacity duration-500">
+          <div className="bg-[#00002280] backdrop-blur-sm rounded-lg px-4 py-2">
+            <div className="text-white text-opacity-70 text-sm flex flex-col items-center">
+              <div>Move: Mouse</div>
+              <div>Shoot: Left Click</div>
+              <div>Special Attack: Right Click</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Show FPS counter if enabled - raised by one more pixel */}
+      {gameOptions.showFPS && (
+        <div className="absolute bottom-[20px] left-24 bg-[#00002280] backdrop-blur-sm px-3 py-2 rounded-full text-white text-sm z-[100] flex items-center">
+          FPS: {currentFps.current}
+        </div>
+      )}
       
       {/* Game canvas */}
       <div className="relative w-full h-full">
@@ -867,7 +898,7 @@ export const GamePage = ({ postId }: { postId: string }) => {
         />
       </div>
       
-      {/* Bottom UI container with better spacing */}
+      {/* Bottom UI container with better alignment */}
       <div className="absolute bottom-4 left-0 right-0 flex justify-between px-6 z-[100]">
         {/* Game controls - left side */}
         <div className="flex gap-2">
@@ -885,15 +916,8 @@ export const GamePage = ({ postId }: { postId: string }) => {
           </button>
         </div>
         
-        {/* Game instructions - center */}
-        <div className="flex flex-col items-center text-white text-opacity-70 text-sm">
-          <div>Move: Mouse</div>
-          <div>Shoot: Left Click</div>
-          <div>Special Attack: Right Click</div>
-        </div>
-
-        {/* Audio controls - right side */}
-        <div className="flex items-center gap-4">
+        {/* Audio controls - right side, moved slightly right */}
+        <div className="flex items-center gap-6">
           {/* Sound Effects Controls */}
           <div className="flex items-center gap-2">
             <button
@@ -934,7 +958,7 @@ export const GamePage = ({ postId }: { postId: string }) => {
         </div>
       </div>
 
-      {/* Game over UI overlay */}
+      {/* Game over UI overlay - Keep this as is */}
       {gameState.gameOver && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-[200]">
           <div className="bg-[#00002280] backdrop-blur-md p-8 rounded-xl flex flex-col items-center">
