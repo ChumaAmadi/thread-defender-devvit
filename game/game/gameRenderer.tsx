@@ -925,16 +925,6 @@ function drawHUD(
   state: GameState, 
   canvas: HTMLCanvasElement
 ) {
-  // Instructions (only show for first few seconds)
-  if (state.score < 100) {
-    ctx.font = '14px sans-serif';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.textAlign = 'center';
-    ctx.fillText('Move: Mouse', canvas.width / 2, canvas.height - 60);
-    ctx.fillText('Shoot: Left Click', canvas.width / 2, canvas.height - 40);
-    ctx.fillText('Special Attack: Right Click', canvas.width / 2, canvas.height - 20);
-  }
-  
   // Show current wave number
   ctx.font = 'bold 24px sans-serif';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';

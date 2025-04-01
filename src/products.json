@@ -1,0 +1,56 @@
+{
+  "products": [
+    {
+      "sku": "thread-defender-small_coins_100",
+      "displayName": "Small Coin Pack",
+      "description": "Get 100 coins to spend on items in the Thread Defender shop",
+      "price": 50,
+      "accountingType": "CONSUMABLE",
+      "images": {
+        "icon": "coin_small.png"
+      },
+      "metadata": {
+        "coinAmount": "100"
+      }
+    },
+    {
+      "sku": "thread-defender-medium_coins_250",
+      "displayName": "Medium Coin Pack",
+      "description": "Get 250 coins to spend on items in the Thread Defender shop",
+      "price": 100,
+      "accountingType": "CONSUMABLE",
+      "images": {
+        "icon": "coin_medium.png"
+      },
+      "metadata": {
+        "coinAmount": "250"
+      }
+    },
+    {
+      "sku": "thread-defender-large_coins_600",
+      "displayName": "Large Coin Pack",
+      "description": "Get 600 coins to spend on items in the Thread Defender shop",
+      "price": 250,
+      "accountingType": "CONSUMABLE",
+      "images": {
+        "icon": "coin_large.png"
+      },
+      "metadata": {
+        "coinAmount": "600"
+      }
+    },
+    {
+      "sku": "thread-defender-super_coins_1500",
+      "displayName": "Super Coin Pack",
+      "description": "Get 1500 coins to spend on items in the Thread Defender shop - best value!",
+      "price": 500,
+      "accountingType": "CONSUMABLE",
+      "images": {
+        "icon": "coin_super.png"
+      },
+      "metadata": {
+        "coinAmount": "1500"
+      }
+    }
+  ]
+}

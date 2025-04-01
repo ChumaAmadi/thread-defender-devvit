@@ -835,7 +835,7 @@ export const GamePage = ({ postId }: { postId: string }) => {
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-[#000022]">
       <StarBackground />
       
-      {/* Game info display - more compact with grid layout */}
+      {/* Game info display - no changes needed here */}
       <div className="absolute top-4 left-4 bg-[#00002280] backdrop-blur-sm rounded-lg p-2 z-[100]">
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
           <div className="text-[#8ca0bd]">Score:</div>
@@ -867,62 +867,70 @@ export const GamePage = ({ postId }: { postId: string }) => {
         />
       </div>
       
-      {/* Game controls - more compact */}
-      <div className="absolute bottom-4 left-4 flex gap-2 z-[100] scale-90">
-        <button
-          onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
-          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
-        >
-          {gameState.isPaused ? '▶️' : '⏸️'}
-        </button>
-        <button
-          onClick={handleMenu}
-          className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
-        >
-          🚪
-        </button>
-      </div>
-      
-      {/* Audio controls - more compact */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-4 z-[100] scale-90">
-        {/* Sound Effects Controls */}
-        <div className="flex items-center gap-2">
-          <span className="text-white text-sm">SFX</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={soundVolume}
-            onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
-            className="w-20"
-          />
+      {/* Bottom UI container with better spacing */}
+      <div className="absolute bottom-4 left-0 right-0 flex justify-between px-6 z-[100]">
+        {/* Game controls - left side */}
+        <div className="flex gap-2">
           <button
-            onClick={() => setIsSoundMuted(!isSoundMuted)}
+            onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
             className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
           >
-            {isSoundMuted ? '🔇' : '🔊'}
+            {gameState.isPaused ? '▶️' : '⏸️'}
+          </button>
+          <button
+            onClick={handleMenu}
+            className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+          >
+            🚪
           </button>
         </div>
+        
+        {/* Game instructions - center */}
+        <div className="flex flex-col items-center text-white text-opacity-70 text-sm">
+          <div>Move: Mouse</div>
+          <div>Shoot: Left Click</div>
+          <div>Special Attack: Right Click</div>
+        </div>
 
-        {/* Music Controls */}
-        <div className="flex items-center gap-2">
-          <span className="text-white text-sm">Music</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={musicVolume}
-            onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
-            className="w-20"
-          />
-          <button
-            onClick={() => setIsMusicMuted(!isMusicMuted)}
-            className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
-          >
-            {isMusicMuted ? '🎵🚫' : '🎵'}
-          </button>
+        {/* Audio controls - right side */}
+        <div className="flex items-center gap-4">
+          {/* Sound Effects Controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSoundMuted(!isSoundMuted)}
+              className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+            >
+              {isSoundMuted ? '🔇' : '🔊'}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={soundVolume}
+              onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+              className="w-20"
+            />
+          </div>
+
+          {/* Music Controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMusicMuted(!isMusicMuted)}
+              className="p-2 rounded-full bg-[#00002280] backdrop-blur-sm text-white hover:bg-[#000022a0] transition-colors"
+            >
+              {isMusicMuted ? '🎵🚫' : '🎵'}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={musicVolume}
+              onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
+              className="w-20"
+            />
+          </div>
         </div>
       </div>
 
