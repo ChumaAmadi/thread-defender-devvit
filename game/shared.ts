@@ -9,7 +9,8 @@ export type WebviewToBlockMessage =
   | { type: "GAME_READY" }
   | { type: "webViewReady" }
   | { type: "GAME_OVER"; payload: { score: number } }
-  | { type: "PURCHASE_REQUEST"; payload: { sku: string } };
+  | { type: "PURCHASE_REQUEST"; payload: { sku: string } }
+  | { type: "CREATE_RESULTS_POST"; payload: { score: number; difficulty: string; transmitterId: string; wave: number } };
 
 // Messages from Devvit blocks to webview
 export type InitResponsePayload = {
@@ -47,11 +48,18 @@ export type PaymentCompletePayload = {
   error?: string;
 };
 
+export type ResultsPostCreatedPayload = {
+  success: boolean;
+  postUrl?: string;
+  error?: string;
+};
+
 export type BlocksToWebviewMessage = 
   | { type: 'INIT_RESPONSE'; payload: InitResponsePayload }
   | { type: 'GAME_START'; payload: GameStartPayload }
   | { type: 'PRODUCTS_DATA'; payload: ProductsDataPayload }
-  | { type: 'PAYMENT_COMPLETE'; payload: PaymentCompletePayload };
+  | { type: 'PAYMENT_COMPLETE'; payload: PaymentCompletePayload }
+  | { type: 'RESULTS_POST_CREATED'; payload: ResultsPostCreatedPayload };
 
 // Helper type for Devvit message wrapping
 export type DevvitMessage = {

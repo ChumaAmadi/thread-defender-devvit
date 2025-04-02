@@ -21,6 +21,7 @@ import {
 } from '../game/powerups';
 import { audioManager } from '../audio/audioManager';
 import { FPSCounter } from '../components/FPSCounter';
+import { WebviewToBlockMessage } from '../types/messages.js';
 
 type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
@@ -370,6 +371,7 @@ export const GamePage = ({ postId }: { postId: string }) => {
   // Handle game over
   useEffect(() => {
     if (gameState.gameOver) {
+      console.log('Game Over detected - handling game over state');
       // Save high score to localStorage
       const currentHighScore = parseInt(localStorage.getItem('highScore') || '0', 10);
       const finalScore = Math.floor(gameState.score);
@@ -379,6 +381,7 @@ export const GamePage = ({ postId }: { postId: string }) => {
       }
       
       // Send game over event to Devvit
+      console.log('Sending GAME_OVER event to Devvit');
       sendToDevvit({
         type: 'GAME_OVER',
         payload: { score: finalScore }
@@ -697,9 +700,44 @@ export const GamePage = ({ postId }: { postId: string }) => {
     state.player.angle = angle;
   };
   
+  // Add this new function to create the results post
+  const createResultsPost = () => {
+    if (!gameState.gameOver) {
+      console.log('Game not over yet, skipping results post');
+      return;
+    }
+    
+    console.log('Creating results post with:', {
+      score: gameState.score,
+      difficulty: gameOptions.difficulty,
+      transmitterId: postId,
+      wave: gameState.level
+    });
+    
+    const finalScore = Math.floor(gameState.score);
+    const difficultyLabel = gameOptions.difficulty.charAt(0).toUpperCase() + gameOptions.difficulty.slice(1);
+    
+    const message: WebviewToBlockMessage = {
+      type: 'CREATE_RESULTS_POST',
+      payload: {
+        score: finalScore,
+        difficulty: difficultyLabel,
+        transmitterId: postId,
+        wave: gameState.level
+      }
+    };
+    
+    console.log('Sending message to Devvit:', message);
+    sendToDevvit(message);
+  };
+  
   // Handle restart game button click
   const handleRestart = () => {
     if (!canvasRef.current) return;
+    
+    console.log('Restart button clicked - creating results post');
+    // Create a results post before restarting
+    createResultsPost();
     
     // IMPORTANT: Cancel the current animation frame before starting a new one
     if (requestRef.current) {
@@ -774,6 +812,10 @@ export const GamePage = ({ postId }: { postId: string }) => {
   
   // Handle return to menu button click
   const handleMenu = () => {
+    console.log('Menu button clicked - creating results post');
+    // Create a results post before navigating away
+    createResultsPost();
+    
     // Stop game music and play menu music
     console.log("Switching to menu music");
     audioManager.playMenuMusic();

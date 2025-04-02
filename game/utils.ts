@@ -1,4 +1,4 @@
-import { WebviewToBlockMessage } from "./shared";
+import { WebviewToBlockMessage } from "./types/messages.js";
 import { ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
