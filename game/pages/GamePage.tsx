@@ -708,11 +708,17 @@ export const GamePage = ({ postId }: { postId: string }) => {
     }
     
     console.log('Creating results post with:', {
-      score: gameState.score,
+      score: Math.floor(gameState.score),
       difficulty: gameOptions.difficulty,
       transmitterId: postId,
       wave: gameState.level
     });
+    
+    // Make sure we have all required data
+    if (!postId) {
+      console.error('Missing postId, cannot create results post');
+      return;
+    }
     
     const finalScore = Math.floor(gameState.score);
     const difficultyLabel = gameOptions.difficulty.charAt(0).toUpperCase() + gameOptions.difficulty.slice(1);
@@ -729,7 +735,56 @@ export const GamePage = ({ postId }: { postId: string }) => {
     
     console.log('Sending message to Devvit:', message);
     sendToDevvit(message);
+    
+    // Add a visual indicator that the post is being created
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in-out';
+    notification.textContent = 'Creating results post...';
+    document.body.appendChild(notification);
+    
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
   };
+
+  // Add a listener for the results post creation response
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'RESULTS_POST_CREATED') {
+        const { success, postUrl, error } = event.data.payload;
+        
+        if (success) {
+          console.log('Results post created successfully:', postUrl);
+          // Show success notification
+          const notification = document.createElement('div');
+          notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in-out';
+          notification.textContent = 'Results posted successfully!';
+          document.body.appendChild(notification);
+          
+          // Remove notification after 3 seconds
+          setTimeout(() => {
+            notification.remove();
+          }, 3000);
+        } else {
+          console.error('Failed to create results post:', error);
+          // Show error notification
+          const notification = document.createElement('div');
+          notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg z-50 animate-fade-in-out';
+          notification.textContent = `Failed to post results: ${error || 'Unknown error'}`;
+          document.body.appendChild(notification);
+          
+          // Remove notification after 3 seconds
+          setTimeout(() => {
+            notification.remove();
+          }, 3000);
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
   
   // Handle restart game button click
   const handleRestart = () => {

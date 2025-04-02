@@ -105,31 +105,90 @@ Devvit.addCustomPostType({
             const { score, difficulty, transmitterId, wave } = event.payload;
             console.log('Received CREATE_RESULTS_POST:', { score, difficulty, transmitterId, wave });
             
-            const { reddit, ui } = context;
-            const subreddit = await reddit.getCurrentSubreddit();
-            
-            const postTitle = `Thread Defender Results - ${difficulty} Mode`;
-            const postContent = `# Thread Defender Results 🎮\n\n` +
-              `## Game Stats\n` +
-              `- **Score:** ${score}\n` +
-              `- **Difficulty:** ${difficulty}\n` +
-              `- **Wave:** ${wave}\n\n` +
-              `## Play Now!\n` +
-              `Want to try your hand at defending threads? [Play Thread Defender](https://reddit.com/r/ThreadDefender/comments/${transmitterId})`;
-            
             try {
-              console.log('Creating post in subreddit: ThreadDefender');
-              const post = await reddit.submitPost({
-                subredditName: 'ThreadDefender',
+              const { reddit, ui } = context;
+              
+              // Log the current subreddit to debug
+              const currentSubreddit = await reddit.getCurrentSubreddit();
+              console.log('Current subreddit:', currentSubreddit);
+              
+              // First, check if the ThreadDefender subreddit exists/is accessible
+              let targetSubreddit = 'ThreadDefender';
+              try {
+                const threadDefenderSubreddit = await reddit.getSubredditByName(targetSubreddit);
+                console.log('ThreadDefender subreddit found:', threadDefenderSubreddit);
+              } catch (subError) {
+                console.error('Error accessing ThreadDefender subreddit:', subError);
+                // If we can't access the target subreddit, post to the current one
+                targetSubreddit = currentSubreddit.name;
+                ui.showToast(`Cannot access r/ThreadDefender. Posting to r/${targetSubreddit} instead.`);
+              }
+              
+              const postTitle = `Thread Defender Results - ${difficulty} Mode`;
+              const postContent = `# Thread Defender Results 🎮\n\n` +
+                `## Game Stats\n` +
+                `- **Score:** ${score}\n` +
+                `- **Difficulty:** ${difficulty}\n` +
+                `- **Wave:** ${wave}\n\n` +
+                `## Play Now!\n` +
+                `Want to try your hand at defending threads? [Play Thread Defender](https://reddit.com/r/${currentSubreddit.name}/comments/${transmitterId})`;
+              
+              console.log('Attempting to create post with content:', {
                 title: postTitle,
-                text: postContent
+                content: postContent,
+                targetSubreddit,
+                transmitterId
               });
               
-              console.log('Post created successfully:', post);
-              ui.showToast({ text: 'Results posted successfully!' });
-            } catch (error) {
+              // Try to create the post
+              let post;
+              try {
+                console.log('Submitting post to subreddit:', targetSubreddit);
+                post = await reddit.submitPost({
+                  subredditName: targetSubreddit,
+                  title: postTitle,
+                  text: postContent
+                });
+                console.log('Post created successfully:', post);
+              } catch (postError: any) {
+                console.error('Failed to create post:', postError);
+                console.error('Error details:', JSON.stringify(postError, null, 2));
+                throw postError; // Re-throw to be caught by outer catch block
+              }
+              
+              if (post) {
+                console.log('Final post created:', post);
+                // Show success message and provide link
+                ui.showToast('Results posted successfully!');
+                
+                // Send confirmation back to the webview
+                postMessage({
+                  type: 'RESULTS_POST_CREATED',
+                  payload: { 
+                    success: true,
+                    postUrl: post.url
+                  }
+                });
+              } else {
+                throw new Error('Post creation returned no result');
+              }
+            } catch (error: any) {
               console.error('Failed to create results post:', error);
-              ui.showToast({ text: 'Failed to post results. Please try again.' });
+              console.error('Error details:', JSON.stringify(error, null, 2));
+              
+              const errorMessage = error?.message || 'Unknown error';
+              console.error('Error message:', errorMessage);
+              
+              context.ui.showToast(`Failed to post results: ${errorMessage}`);
+              
+              // Send error back to the webview
+              postMessage({
+                type: 'RESULTS_POST_CREATED',
+                payload: {
+                  success: false,
+                  error: errorMessage
+                }
+              });
             }
           }
           else if (event.type === 'webViewReady') {
@@ -190,8 +249,110 @@ Devvit.addMenuItem({
       // This is a placeholder - in production you would register products through Devvit's UI
       context.ui.showToast({ text: "Products would be registered here in production" });
     } catch (error) {
-      console.error('Error registering products:', error);
-      context.ui.showToast({ text: "Error setting up products" });
+      console.error('Error setting up products:', error);
+      context.ui.showToast({ text: "Failed to setup products" });
+    }
+  }
+});
+
+// Add test menu item for results post
+Devvit.addMenuItem({
+  label: 'Test Results Post',
+  location: 'subreddit',
+  forUserType: 'moderator',
+  onPress: async (_event, context) => {
+    const { reddit, ui } = context;
+    const currentSubreddit = await reddit.getCurrentSubreddit();
+    
+    try {
+      // Test if we can access the ThreadDefender subreddit
+      try {
+        const threadDefenderSub = await reddit.getSubredditByName('ThreadDefender');
+        ui.showToast(`ThreadDefender subreddit exists: ${threadDefenderSub.name}`);
+      } catch (error) {
+        ui.showToast(`Cannot access ThreadDefender subreddit`);
+      }
+      
+      // Test post to current subreddit
+      const post = await reddit.submitPost({
+        subredditName: currentSubreddit.name,
+        title: 'Thread Defender - Test Post',
+        text: '# This is a test post\nCreated to test the results posting functionality.'
+      });
+      
+      ui.showToast('Test post created successfully!');
+      ui.navigateTo(post.url);
+    } catch (error: any) {
+      console.error('Test post creation failed:', error);
+      ui.showToast(`Test failed: ${error?.message || 'Unknown error'}`);
+    }
+  }
+});
+
+// Add debug menu item for testing post creation
+Devvit.addMenuItem({
+  label: 'Debug Thread Defender',
+  location: 'subreddit',
+  forUserType: 'moderator',
+  onPress: async (_event, context) => {
+    const { reddit, ui } = context;
+    const currentSubreddit = await reddit.getCurrentSubreddit();
+    
+    try {
+      console.log('Starting debug process...');
+      console.log('Current subreddit:', currentSubreddit);
+      
+      // Test if we can access the ThreadDefender subreddit
+      let targetSubreddit = 'ThreadDefender';
+      try {
+        const threadDefenderSub = await reddit.getSubredditByName(targetSubreddit);
+        console.log('ThreadDefender subreddit found:', threadDefenderSub);
+      } catch (error) {
+        console.error('Error accessing ThreadDefender subreddit:', error);
+        targetSubreddit = currentSubreddit.name;
+        ui.showToast(`Cannot access r/ThreadDefender. Will test with r/${targetSubreddit}`);
+      }
+      
+      // Create a test post with sample data
+      const testData = {
+        score: 1000,
+        difficulty: 'Normal',
+        transmitterId: 'test123',
+        wave: 5
+      };
+      
+      console.log('Creating test post with data:', testData);
+      
+      const postTitle = `Thread Defender Debug Test - ${testData.difficulty} Mode`;
+      const postContent = `# Thread Defender Debug Test 🎮\n\n` +
+        `## Test Data\n` +
+        `- **Score:** ${testData.score}\n` +
+        `- **Difficulty:** ${testData.difficulty}\n` +
+        `- **Wave:** ${testData.wave}\n\n` +
+        `## Debug Information\n` +
+        `- Target Subreddit: r/${targetSubreddit}\n` +
+        `- Current Subreddit: r/${currentSubreddit.name}\n` +
+        `- Test ID: ${testData.transmitterId}`;
+      
+      console.log('Attempting to create debug post:', {
+        title: postTitle,
+        content: postContent,
+        targetSubreddit
+      });
+      
+      const post = await reddit.submitPost({
+        subredditName: targetSubreddit,
+        title: postTitle,
+        text: postContent
+      });
+      
+      console.log('Debug post created successfully:', post);
+      ui.showToast('Debug post created successfully!');
+      ui.navigateTo(post.url);
+    } catch (error: any) {
+      console.error('Debug post creation failed:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      ui.showToast(`Debug failed: ${error?.message || 'Unknown error'}`);
     }
   }
 });
