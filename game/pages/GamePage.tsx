@@ -43,8 +43,8 @@ export const GamePage = ({ postId }: { postId: string }) => {
       y: 0,
       size: 15,
       angle: 0,
-      speed: 5,
-      fireRate: 200, // milliseconds between shots
+      speed: 12,
+      fireRate: 200,
       lastFireTime: 0,
       specialAmmo: 3
     },
@@ -372,6 +372,11 @@ export const GamePage = ({ postId }: { postId: string }) => {
   useEffect(() => {
     if (gameState.gameOver) {
       console.log('Game Over detected - handling game over state');
+      
+      // Ensure game music is stopped and game over sound is played
+      audioManager.stopMusic();
+      audioManager.playSound('gameOver');
+      
       // Save high score to localStorage
       const currentHighScore = parseInt(localStorage.getItem('highScore') || '0', 10);
       const finalScore = Math.floor(gameState.score);
@@ -508,6 +513,9 @@ export const GamePage = ({ postId }: { postId: string }) => {
     
     // Check for game over
     if (currentState.obeliskHealth <= 0) {
+      // Stop game music first
+      audioManager.stopMusic();
+      // Then play game over sound
       audioManager.playSound('gameOver');
       setGameState(prev => ({ ...prev, gameOver: true }));
       return;
@@ -584,6 +592,15 @@ export const GamePage = ({ postId }: { postId: string }) => {
     if (obeliskDamage > 0) {
       audioManager.playSound('hit');
     }
+    
+    // Play explosion sound for each enemy that was destroyed
+    const destroyedEnemies = currentState.objects.filter(obj => 
+      obj.type === 'enemy' && 
+      !updatedObjects.some(updated => updated.id === obj.id)
+    );
+    destroyedEnemies.forEach(() => {
+      audioManager.playSound('explosion');
+    });
     
     // Apply shield effect to reduce obelisk damage if active
     const finalObeliskDamage = activeEffectsRef.current.shield?.active 
@@ -673,10 +690,12 @@ export const GamePage = ({ postId }: { postId: string }) => {
     let targetX = state.player.x;
     let targetY = state.player.y;
     
-    // Only move if mouse is more than 5px away from player
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-      targetX = state.player.x + Math.cos(angle) * playerSpeed * deltaTime * 60;
-      targetY = state.player.y + Math.sin(angle) * playerSpeed * deltaTime * 60;
+    // Only move if mouse is more than 10px away from player (increased from 5px for smoother movement)
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      // Add interpolation factor for smoother movement
+      const interpolationFactor = 0.8; // Increased from 0.5 to 0.8 for much faster response
+      targetX = state.player.x + (Math.cos(angle) * playerSpeed * deltaTime * 60) * interpolationFactor;
+      targetY = state.player.y + (Math.sin(angle) * playerSpeed * deltaTime * 60) * interpolationFactor;
     }
     
     // Constrain to screen bounds
@@ -689,12 +708,13 @@ export const GamePage = ({ postId }: { postId: string }) => {
     const newDistanceToCenter = Math.sqrt(newPlayerToCenterX * newPlayerToCenterX + newPlayerToCenterY * newPlayerToCenterY);
     
     if (newDistanceToCenter > maxDistance) {
-      const ratio = maxDistance / newDistanceToCenter;
-      targetX = centerX + newPlayerToCenterX * ratio;
-      targetY = centerY + newPlayerToCenterY * ratio;
+      // Scale back the movement to stay within max distance
+      const scale = maxDistance / newDistanceToCenter;
+      targetX = centerX + newPlayerToCenterX * scale;
+      targetY = centerY + newPlayerToCenterY * scale;
     }
     
-    // Update player
+    // Update player position
     state.player.x = targetX;
     state.player.y = targetY;
     state.player.angle = angle;
@@ -834,7 +854,7 @@ export const GamePage = ({ postId }: { postId: string }) => {
         y: canvasRef.current.height / 2 + 100,
         size: 15,
         angle: 0,
-        speed: 5,
+        speed: 12,
         fireRate: 200,
         lastFireTime: 0,
         specialAmmo: 3
@@ -856,9 +876,11 @@ export const GamePage = ({ postId }: { postId: string }) => {
       // Start the first wave
       startWave(1);
       
-      // Restart game music - make sure to use game music
-      console.log("Restarting game music after restart");
-      audioManager.playGameMusic();
+      // Stop any existing music and start game music
+      audioManager.stopMusic();
+      setTimeout(() => {
+        audioManager.playGameMusic();
+      }, 100);
       
       // Restart game loop
       startGameLoop();

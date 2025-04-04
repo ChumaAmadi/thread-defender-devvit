@@ -6,8 +6,8 @@ class AudioManager {
   private gameMusic: HTMLAudioElement | null = null;
   private isSoundMuted: boolean = false;
   private _isMusicMuted: boolean = false;
-  private soundVolume: number = 0.2;
-  private musicVolume: number = 0.4;
+  private soundVolume: number = 0.1;
+  private musicVolume: number = 0.2;
   private lastMusicPlayed: 'menu' | 'game' | 'none' = 'none';
 
   private constructor() {
@@ -40,8 +40,15 @@ class AudioManager {
     }
 
     // Set up sound effect volumes
-    Object.values(this.sounds).forEach(sound => {
-      sound.volume = this.soundVolume;
+    Object.entries(this.sounds).forEach(([name, sound]) => {
+      // Set explosion and game over sounds to a higher volume
+      if (name === 'explosion') {
+        sound.volume = 0.4;
+      } else if (name === 'gameOver') {
+        sound.volume = 0.35;
+      } else {
+        sound.volume = this.soundVolume;
+      }
     });
     
     // Preload audio files
@@ -80,7 +87,16 @@ class AudioManager {
     if (sound) {
       // Create a clone for overlapping sounds
       const clone = sound.cloneNode() as HTMLAudioElement;
-      clone.volume = this.soundVolume;
+      
+      // Set appropriate volume based on sound type
+      if (soundName === 'explosion') {
+        clone.volume = 0.4;
+      } else if (soundName === 'gameOver') {
+        clone.volume = 0.35;
+      } else {
+        clone.volume = this.soundVolume;
+      }
+      
       clone.play().catch(e => console.error('[AudioManager] Error playing sound:', e));
     }
   }
