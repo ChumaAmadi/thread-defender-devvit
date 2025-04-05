@@ -14,6 +14,7 @@ yarn-error.log*
 dist/
 build/
 out/
+webroot/
 
 # OS files
 .DS_Store
@@ -31,42 +32,39 @@ Thumbs.db
 !.env.example
 
 # Game Logic - Hide Implementation Details
-/game/core/
-/game/game/
-/game/audio/
-/game/utils/gameUtils.ts
-/game/utils/collision.ts
-/game/utils/particles.ts
+game/game/
+game/audio/
+game/utils.ts
+game/shared.ts
+game/App.tsx
+game/main.tsx
 
 # Game Pages - Hide Implementation but Keep Structure
-/game/pages/*.tsx
-!/game/pages/index.ts
-!/game/pages/types.ts
+game/pages/*.tsx
+!game/pages/index.ts
+!game/pages/types.ts
 
 # Game Components - Hide Implementation but Keep Structure
-/game/components/*.tsx
-!/game/components/index.ts
-!/game/components/types.ts
+game/components/*.tsx
+!game/components/index.ts
+!game/components/types.ts
 
 # Game Assets - Hide Content but Keep Structure
-/game/public/sounds/*
-!/game/public/sounds/.gitkeep
-/game/public/images/*
-!/game/public/images/.gitkeep
-/game/public/sprites/*
-!/game/public/sprites/.gitkeep
-
-# Game State and Configuration
-/game/config/
-/game/state/
-/game/constants/gameConstants.ts
+game/public/sounds/*
+!game/public/sounds/.gitkeep
+game/public/images/*
+!game/public/public/images/.gitkeep
+game/public/sprites/*
+!game/public/sprites/.gitkeep
 
 # Keep Template Structure Visible
-!/game/
-!/game/shared/
-!/game/types/
-!/game/hooks/
-!/game/context/
+!game/
+!game/types/
+!game/hooks/
+!game/styles/
+!game/index.html
+!game/index.css
+!game/tsconfig.json
 
 # Build Configuration - Keep Public
 !.editorconfig
@@ -74,6 +72,9 @@ Thumbs.db
 !postcss.config.js
 !vite.config.ts
 !tailwind.config.js
+!tsconfig.json
+!package.json
+!package-lock.json
 
 # Devvit Configuration
 .devvit/
