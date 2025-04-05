@@ -1,62 +1,149 @@
-## Devvit Webview React
+# Thread Defender
 
-A template repository for writing webview apps with Devvit.
+A Reddit arcade game built with Devvit where players defend their posts against waves of enemies representing downvotes. This project serves both as a playable game and as a comprehensive template for building React-based Devvit applications.
 
-https://github.com/user-attachments/assets/5bf4d6ec-5ff1-49ce-8c50-f46e7fbac781
+## Game Overview
 
-### Tech
+Thread Defender transforms Reddit's voting system into an engaging arcade experience:
 
-- [Devvit](https://developers.reddit.com/docs/): Reddit’s Developer Platform that lets you build powerful apps and experiences to enhance the communities you love.
-- [Vite](https://vite.dev/): Advanced build tool for the web
-- [React](https://react.dev/): UI Library for the web
-- [TailwindCSS](https://tailwindcss.com/): Utility first CSS framework
-- [Typescript](https://www.typescriptlang.org/): Strongly typed Javascript superset
-- [Motion](https://motion.dev/): Animation Library
+- **Dynamic Difficulty**: The game's difficulty scales based on the number of downvotes a post has received
+- **Arcade-Style Gameplay**: Control your ship with the mouse, shoot with left-click, and use special attacks with right-click
+- **Wave-Based Combat**: Face increasingly difficult waves of enemies
+- **Power-ups System**: Collect and use power-ups to enhance your gameplay
+- **High Score Tracking**: Compete for the highest score and share your results
 
-## Getting started
+### Enemy System
 
-> Make sure you have Node 22 downloaded on your machine before running!
+The game features various enemy types with unique behaviors:
 
-```sh
-git clone ....
+- **Basic**: Standard enemies with balanced stats
+- **Fast**: Quick but fragile enemies
+- **Tank**: Slow-moving enemies with high health
+- **Hunter**: Enemies that actively target the player
+- **And More**: Additional enemy types with special abilities (teleporting, shields, etc.)
 
-cd ...
+## Using This Template
 
-npm install
+This project is designed to serve as a comprehensive template for creating Devvit applications with webview integration. Here's how to use it:
+
+### Prerequisites
+
+- Node.js v22 or later
+- A Reddit account with a subreddit you can use for development
+- [Devvit CLI](https://developers.reddit.com/docs/getting-started#install-the-devvit-cli) installed globally
+
+### Getting Started
+
+1. Clone this repository:
+
+   ```sh
+   git clone https://github.com/yourusername/thread-defender.git
+   cd thread-defender
+   npm install
+   ```
+
+2. Create a development subreddit on Reddit.com if you don't already have one.
+
+3. Update the configuration files:
+   - In `package.json`: Update the `dev:devvit` script with your subreddit name
+   - In `devvit.yaml`: Update the app name (must be 0-16 characters)
+
+4. Upload your app:
+
+   ```sh
+   npm run upload
+   ```
+
+5. Start development:
+
+   ```sh
+   npm run dev
+   ```
+
+6. Create a post to test your app:
+   - Go to your subreddit
+   - Click the three dots menu
+   - Select "Create Thread Defender Post"
+   - Your game should appear in the post
+
+### Project Structure
+
+```
+thread-defender/
+├── game/                  # Webview React application
+│   ├── components/        # UI components
+│   ├── hooks/             # React hooks for game state
+│   ├── pages/             # Game screens
+│   ├── shared.ts          # Shared types and interfaces
+│   ├── utils.ts           # Utility functions
+│   └── App.tsx            # Main React component
+├── src/                   # Devvit application
+│   ├── components/        # Devvit UI components
+│   ├── main.tsx           # Main Devvit entry point
+│   └── constants.ts       # Configuration values
+└── public/                # Static assets
 ```
 
-Before continuing, make a subreddit on Reddit.com. This will be where you do your own development. Go to Reddit.com, scroll the left side bar down to communities, and click "Create a community."
+### Key Components
 
-Next, go to the `package.json` and update see the `dev:devvit` command. Update the command to have you subreddit name.
+- **Webview Integration**: The template shows how to properly integrate a React webview with Devvit
+- **Messaging System**: Demonstrates bidirectional communication between Devvit and the webview
+- **Custom Post Type**: Provides a custom post type implementation
+- **Menu Items**: Shows how to create and handle menu items
+- **State Management**: Implements state management in both Devvit and the webview
 
-Finally go to `devvit.yaml` and name your app. It has to be 0-16 characters. Once you have, click save, and run `npm run upload` from the root of the repository.
+## Extending the Template
 
-Now all you have to do is run `npm run dev` and navigate to the subreddit.
+This template is structured to make it easy to extend with your own features. Here are some ways to customize it:
 
-There is one last gotcha! You need to make a new post before you can see it. You can do so by going to your subreddit, clicking the three dots, and tapping "Make my experience post". After you start developing your all please update the menu item copy (found in `src/main.tsx`).
+### Modify the Game
+
+Look at the `game/` directory to understand the game's structure:
+
+- `game/pages/`: Contains different screens (Home, Game, Shop, etc.)
+- `game/components/`: Reusable UI components
+- `game/hooks/`: State management and custom hooks
+
+### Change the Devvit Integration
+
+Examine `src/main.tsx` to understand how the Devvit app communicates with the webview:
+
+- The `onMessage` handler processes messages from the webview
+- Custom menu items can be added using `Devvit.addMenuItem`
+- The custom post type is configured with `Devvit.addCustomPostType`
+
+### Add New Features
+
+Some ideas for extending the template:
+
+- Add user authentication
+- Implement a leaderboard system
+- Create additional power-ups or enemies
+- Add social sharing features
+- Implement virtual currency and purchases
 
 ## Commands
 
-- `npm run dev`: Starts a development server where you can develop your application live on Reddit.
-- `npm run upload`: Uploads a new version of your app
-- `npm run vite`: Useful to run just the React app on your machine if you need to style things quickly.
+- `npm run dev`: Start local development with hot reloading
+- `npm run upload`: Upload a new version of your app
+- `npm run vite`: Run just the React app locally for faster UI development
 
-## Flow of the app
+## Best Practices
 
-`main.tsx` is the main entry point of the application, it will have a launch button that actually launches the webview (stuff in `game/`).
+- Keep game logic separated from UI components
+- Use TypeScript interfaces for message types
+- Handle errors gracefully in both the Devvit app and webview
+- Implement responsive design for different screen sizes
+- Test on both desktop and mobile browsers
 
-In our case we are using webviews so we basically have a totally different application which then outputs to an `index.html` file which is rendered in the webview.
+## Contributing
 
-- `Preview.tsx`: It is the loading state till game launches
-- `core/` : Contains api functions
-- `utils/`: Has functions to call APIs and other utilities
-- `constants.ts`: It is the env file for devvit
-- `assets/`: Public folder for static assets
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Inside Actual Game
+## License
 
-Entry point is `main.tsx`, which renders App like Vite does, INIT_RESPONSE is called from within an useEffect to send a ready message to the Devvit app.
+[MIT License](LICENSE)
 
-- `HomePage.tsx` shows an example of routing and navigation with the `useSetPage` hook.
-- `PokemonPage.tsx` shows an example of how to send network requests over postMessage.
-- `/components` for reusable components
+---
+
+*This project is not affiliated with Reddit, Inc. Devvit is a platform provided by Reddit for third-party developers.*

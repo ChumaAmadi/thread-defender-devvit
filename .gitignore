@@ -1,8 +1,62 @@
+# Node modules and package management
 node_modules
 .yarn
-logs
-*.log
-npm-debug.log*
+.pnp.*
 yarn-debug.log*
 yarn-error.log*
+npm-debug.log*
+.npm
+
+# Logs
+logs
+*.log
+
+# OS specific files
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Build and distribution files
+dist/
+build/
+/out/
+.next/
+
+# Environment and config files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+.project
+.classpath
+*.sublime-*
+
+# Game implementation details
+game/game/enemyManager.tsx
+game/game/enemyTypes.tsx
+game/game/gameRenderer.tsx
+game/game/powerups.tsx
+game/audio/
+
+# Page implementations (keep basic structure only)
+game/pages/GamePage.tsx
+game/pages/ShopPage.tsx
+game/pages/HomePage.tsx
+game/pages/HelpPage.tsx
+game/pages/OptionsPage.tsx
+
+# Utility components
+game/components/FPSCounter.tsx
+game/components/StarBackground.tsx
+
+# Misc files
+.cache/
+coverage/
+.nyc_output/
