@@ -13,6 +13,7 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
+out/
 
 # OS files
 .DS_Store
@@ -29,40 +30,59 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Game implementation details - hide specific logic
-/game/audio/audioManager.ts
-/game/game/enemyManager.tsx
-/game/game/enemyTypes.tsx
-/game/game/gameRenderer.tsx
-/game/game/powerups.tsx
+# Game Logic - Hide Implementation Details
+/game/core/
+/game/game/
+/game/audio/
+/game/utils/gameUtils.ts
+/game/utils/collision.ts
+/game/utils/particles.ts
 
-# Game pages - hide implementations but keep structure
-/game/pages/GamePage.tsx
-/game/pages/HelpPage.tsx
-/game/pages/HomePage.tsx
-/game/pages/MainMenu.tsx
-/game/pages/OptionsPage.tsx
-/game/pages/ShopPage.tsx
+# Game Pages - Hide Implementation but Keep Structure
+/game/pages/*.tsx
+!/game/pages/index.ts
+!/game/pages/types.ts
 
-# Utility components - hide implementation details
-/game/components/FPSCounter.tsx
-/game/components/StarBackground.tsx
+# Game Components - Hide Implementation but Keep Structure
+/game/components/*.tsx
+!/game/components/index.ts
+!/game/components/types.ts
 
-# Game assets - hide audio files but keep folder structure
-/game/public/sounds/*.mp3
+# Game Assets - Hide Content but Keep Structure
+/game/public/sounds/*
 !/game/public/sounds/.gitkeep
+/game/public/images/*
+!/game/public/images/.gitkeep
+/game/public/sprites/*
+!/game/public/sprites/.gitkeep
 
-# Keep build configuration private
-.editorconfig
-.prettierrc
-postcss.config.js
-vite.config.ts
-tailwind.config.js
+# Game State and Configuration
+/game/config/
+/game/state/
+/game/constants/gameConstants.ts
 
-# Devvit configuration files
-.devvit
-devvit-cli
-devvit-cli.cmd
-devvit-cli.ps1
+# Keep Template Structure Visible
+!/game/
+!/game/shared/
+!/game/types/
+!/game/hooks/
+!/game/context/
+
+# Build Configuration - Keep Public
+!.editorconfig
+!.prettierrc
+!postcss.config.js
+!vite.config.ts
+!tailwind.config.js
+
+# Devvit Configuration
+.devvit/
+devvit-cli*
 devvit.cmd
 devvit.ps1
+
+# Testing
+/coverage/
+/tests/
+*.test.ts
+*.test.tsx
