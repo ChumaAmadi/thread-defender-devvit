@@ -1,63 +1,41 @@
-# Node modules and dependencies
+# Dependencies
 node_modules/
 .yarn/
 .pnp.*
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build outputs
+# Build
 dist/
 build/
 out/
 webroot/
 
-# OS files
-.DS_Store
-Thumbs.db
+# Environment
+.env
+.env.*
+!.env.example
 
-# IDE configuration
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Environment files
-.env
-.env.*
-!.env.example
+# OS
+.DS_Store
+Thumbs.db
 
-# Game Logic - Hide Implementation Details
-game/game/
+# Game Logic - Hide these specific files
+game/game/gameRenderer.tsx
+game/game/powerups.tsx
+game/game/enemyManager.tsx
+game/game/enemyTypes.tsx
 game/audio/
 game/utils.ts
 game/shared.ts
 game/App.tsx
 game/main.tsx
 
-# Game Pages - Hide Implementation but Keep Structure
-game/pages/*.tsx
-!game/pages/index.ts
-!game/pages/types.ts
-
-# Game Components - Hide Implementation but Keep Structure
-game/components/*.tsx
-!game/components/index.ts
-!game/components/types.ts
-
-# Game Assets - Hide Content but Keep Structure
-game/public/sounds/*
-!game/public/sounds/.gitkeep
-game/public/images/*
-!game/public/public/images/.gitkeep
-game/public/sprites/*
-!game/public/sprites/.gitkeep
-
-# Keep Template Structure Visible
+# Keep these files visible
 !game/
 !game/types/
 !game/hooks/
@@ -66,7 +44,7 @@ game/public/sprites/*
 !game/index.css
 !game/tsconfig.json
 
-# Build Configuration - Keep Public
+# Config files to keep
 !.editorconfig
 !.prettierrc
 !postcss.config.js
@@ -76,14 +54,8 @@ game/public/sprites/*
 !package.json
 !package-lock.json
 
-# Devvit Configuration
+# Devvit
 .devvit/
 devvit-cli*
 devvit.cmd
 devvit.ps1
-
-# Testing
-/coverage/
-/tests/
-*.test.ts
-*.test.tsx
